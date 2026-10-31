@@ -16,8 +16,8 @@ export function DocumentCard({ doc }: { doc: Doc }) {
       </View>
 
       <View style={styles.body}>
-        <Text style={styles.title} numberOfLines={1}>
-          {doc.title.length > 14 ? `${doc.title.slice(0, 13).trimEnd()}...` : doc.title}
+        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+          {doc.title}
         </Text>
 
         <View style={styles.meta}>
@@ -42,7 +42,7 @@ export function DocumentCard({ doc }: { doc: Doc }) {
             <Text style={[styles.statusText, { color: '#B9473A' }]}>Couldn’t read this PDF · Tap to retry</Text>
           </View>
         ) : (
-          <PillButton label="Chat Now" size="sm" sparkle onPress={open} style={{ marginTop: 14 }} />
+          <PillButton label="Chat now" size="sm" sparkle onPress={open} style={{ marginTop: 14 }} />
         )}
       </View>
     </Pressable>
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
   },
   body: { flex: 1, marginLeft: 22 },
-  title: { fontFamily: fonts.medium, fontSize: 16, color: colors.text, letterSpacing: -0.2 },
+  title: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 21, color: colors.text, letterSpacing: -0.2 },
   meta: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 5 },
   metaText: { fontFamily: fonts.regular, fontSize: 13.5, color: colors.muted },
   dot: { width: 3.5, height: 3.5, borderRadius: 2, backgroundColor: colors.muted, marginHorizontal: 4 },

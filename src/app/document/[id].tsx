@@ -109,7 +109,7 @@ export default function DocumentChat() {
         <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <ScreenHeader
             onBack={goBackOr('/home')}
-            title={doc.fileName}
+            title={doc.status === 'ready' ? doc.title : doc.fileName}
             subtitle={
               <View style={styles.pagesRow}>
                 <FileTextIcon size={15} color={colors.muted} strokeWidth={1.5} />
@@ -179,7 +179,7 @@ export default function DocumentChat() {
             <TextInput
               value={text}
               onChangeText={setText}
-              placeholder={voice.listening ? 'Listening…' : doc.status === 'ready' ? 'Ask anything about .....' : 'Waiting for the document…'}
+              placeholder={voice.listening ? 'Listening…' : doc.status === 'ready' ? 'Ask about this document' : 'Waiting for the document…'}
               placeholderTextColor={colors.faint}
               editable={doc.status === 'ready' && onDevice}
               style={styles.input}
