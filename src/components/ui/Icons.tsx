@@ -303,3 +303,9 @@ export const HomeIcon = (p: P) => (
     <Path d="M9.5 16.5h5" />
   </Base>
 );
+
+export const CloseIcon = (p: P) => (
+  <Base {...p}>
+    <Path d="M18 6 6 18M6 6l12 12" />
+  </Base>
+);

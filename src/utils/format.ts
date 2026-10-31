@@ -25,3 +25,9 @@ export function timeAgo(at: number) {
 /** Local calendar day as "YYYY-MM-DD" (used for per-day question counts). */
 export const dayKey = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** "tharindu" → "Tharindu" (for names coming from email prefixes etc.). */
+export const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+/** "3 documents", "1 document" */
+export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;

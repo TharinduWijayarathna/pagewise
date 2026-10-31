@@ -1,35 +1,17 @@
 <div align="center">
 
-<img src="docs/images/logo.png" alt="Pagewise logo" width="112" />
+<img src="docs/images/banner.png" alt="Pagewise: chat with your PDFs" width="100%" />
 
-# Pagewise
+<br />
 
-**Deep insights, simple conversations.**
-Upload a PDF and chat with it: Pagewise reads the whole document with Google Gemini, summarizes it,
-and answers your questions with page references.
+**Pagewise** lets you upload a PDF and chat with it. It reads the whole document with Google Gemini,
+summarizes it, and answers your questions with page references.
 
 Expo · React Native · TypeScript · Firebase · Gemini
 
 </div>
 
 ---
-
-## Screenshots
-
-<table>
-  <tr>
-    <td align="center"><img src="docs/images/screenshots/welcome.png" width="200" /><br /><sub>Welcome</sub></td>
-    <td align="center"><img src="docs/images/screenshots/home.png" width="200" /><br /><sub>Your documents</sub></td>
-    <td align="center"><img src="docs/images/screenshots/chat.png" width="200" /><br /><sub>Chat with a PDF</sub></td>
-    <td align="center"><img src="docs/images/screenshots/ios-liquid-glass.png" width="200" /><br /><sub>iOS · Liquid Glass tab bar</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/images/screenshots/login.png" width="200" /><br /><sub>Sign in</sub></td>
-    <td align="center"><img src="docs/images/screenshots/history.png" width="200" /><br /><sub>History</sub></td>
-    <td align="center"><img src="docs/images/screenshots/insights.png" width="200" /><br /><sub>Insights</sub></td>
-    <td align="center"><img src="docs/images/screenshots/profile.png" width="200" /><br /><sub>Profile</sub></td>
-  </tr>
-</table>
 
 ## Features
 
