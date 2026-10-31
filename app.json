@@ -1,25 +1,73 @@
 {
   "expo": {
-    "name": "stella",
-    "slug": "stella",
+    "name": "Pagewise",
+    "slug": "pagewise",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.pagewise.app",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#2A2824",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.pagewise.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain",
+          "backgroundColor": "#F2ECE0"
+        }
+      ],
+      "expo-router",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-firebase/app-check",
+      "@react-native-google-signin/google-signin",
+      "expo-apple-authentication",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic"
+          },
+          "android": {
+            "kotlinVersion": "2.3.21"
+          }
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Pagewise uses the microphone so you can ask questions about your documents by voice.",
+          "speechRecognitionPermission": "Pagewise turns your speech into text so you can ask questions hands-free.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ]
+    ],
+    "scheme": "pagewise",
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }

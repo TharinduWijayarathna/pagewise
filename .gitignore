@@ -1,41 +1,53 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# ───────────────────────── Dependencies ─────────────────────────
 node_modules/
 
-# Expo
+# ───────────────────────── Expo / Metro ─────────────────────────
 .expo/
 dist/
 web-build/
 expo-env.d.ts
+.metro-health-check*
 
-# Native
-.kotlin/
-*.orig.*
+# ─────────────── Generated native projects (Expo CNG) ───────────────
+# Recreated by `npx expo prebuild` / `npx expo run:*` — never edit by hand.
+/android
+/ios
+
+# ───────────────────── Secrets & local config ─────────────────────
+# Each developer uses their own Firebase project — see docs/firebase-setup.md
+.env
+.env.local
+.env.*.local
+google-services.json
+GoogleService-Info.plist
+
+# Signing keys & certificates
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
 
-# Metro
-.metro-health-check*
+# ───────────────────────── Build output ─────────────────────────
+*.apk
+*.aab
+*.ipa
+*.tsbuildinfo
+.kotlin/
+*.orig.*
 
-# debug
+# ───────────────────────── Logs ─────────────────────────
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+firebase-debug.log
+*.log
 
-# macOS
+# ───────────────────────── OS / editors ─────────────────────────
 .DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-# generated native folders
-/ios
-/android
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
