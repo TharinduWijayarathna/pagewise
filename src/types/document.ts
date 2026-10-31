@@ -1,3 +1,5 @@
+import type { FolderColorKey } from '@/constants/folderColors';
+
 export type DocStatus = 'processing' | 'ready' | 'error';
 
 export type Doc = {
@@ -23,6 +25,8 @@ export type Doc = {
 export type Folder = {
   id: string;
   name: string;
+  /** Palette key from constants/folderColors (documents in the folder use this colour). */
+  color: FolderColorKey;
   createdAt: number;
 };
 

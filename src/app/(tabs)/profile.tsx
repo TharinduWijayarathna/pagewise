@@ -6,18 +6,21 @@ import {
   BellIcon,
   ChevronRightIcon,
   CrownIcon,
-  DatabaseIcon,
   HelpIcon,
   LogoutIcon,
+  MailIcon,
   ShieldIcon,
   UserIcon,
 } from '@/components/ui/Icons';
 import { GlossyIcon } from '@/components/ui/GlossyIcon';
+import { FOLDER_COLORS } from '@/constants/folderColors';
 import { TabScreen, tabText } from '@/components/layout/TabScreen';
 import { GlassCard, Row } from '@/components/ui';
 import { useAuth } from '@/state/auth';
 import { useLibrary } from '@/state/library';
 import { colors, fonts, gradients } from '@/constants/theme';
+
+const GOLD = ['#F6D77A', '#C9961C'] as const;
 
 const chevron = <ChevronRightIcon size={18} color={colors.faint} strokeWidth={1.6} />;
 const ic = (I: typeof UserIcon) => (color: string) => <I size={18} color={color} strokeWidth={1.7} />;
@@ -77,8 +80,8 @@ export default function Profile() {
       {!pro && (
         <Pressable onPress={() => router.push('/upgrade')} style={({ pressed }) => pressed && { opacity: 0.9 }}>
           <LinearGradient colors={gradients.dark} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.upgrade}>
-            <GlossyIcon tone="green" size={42}>
-              {(c) => <CrownIcon size={20} color={c} strokeWidth={1.7} />}
+            <GlossyIcon fill={GOLD} size={42}>
+              {(c) => <CrownIcon size={20} color={c} strokeWidth={1.8} />}
             </GlossyIcon>
             <View style={{ flex: 1 }}>
               <Text style={styles.upgradeTitle}>Upgrade to Pagewise Pro</Text>
@@ -104,16 +107,16 @@ export default function Profile() {
 
       <Text style={tabText.section}>Preferences</Text>
       <GlassCard style={styles.group}>
-        <Row icon={ic(BellIcon)} label="Push notifications" right={<Switch value={push} onValueChange={setPush} {...switchProps} />} />
-        <Row icon={ic(DatabaseIcon)} tone="ink" label="Weekly email digest" right={<Switch value={digest} onValueChange={setDigest} {...switchProps} />} last />
+        <Row icon={ic(BellIcon)} fill={FOLDER_COLORS.orange.top} label="Push notifications" right={<Switch value={push} onValueChange={setPush} {...switchProps} />} />
+        <Row icon={ic(MailIcon)} fill={FOLDER_COLORS.blue.top} label="Weekly email digest" right={<Switch value={digest} onValueChange={setDigest} {...switchProps} />} last />
       </GlassCard>
 
       <Text style={tabText.section}>Account</Text>
       <GlassCard style={styles.group}>
-        <Row icon={ic(UserIcon)} label="Edit profile" right={chevron} onPress={() => router.push('/edit-profile')} />
-        <Row icon={ic(CrownIcon)} tone="ink" label="Subscription" value={pro ? 'Pro' : 'Free'} right={chevron} onPress={() => router.push('/upgrade')} />
-        <Row icon={ic(ShieldIcon)} label="Privacy & security" right={chevron} onPress={() => Alert.alert('Privacy & security', 'Your PDFs are stored only on this device. To answer questions, the document and your question are sent to Google Gemini through Firebase. Your account data is stored securely in Firebase.')} />
-        <Row icon={ic(HelpIcon)} tone="ink" label="Help & support" right={chevron} onPress={() => Alert.alert('Help & support', 'Email us at support@pagewise.app')} last />
+        <Row icon={ic(UserIcon)} fill={FOLDER_COLORS.teal.top} label="Edit profile" right={chevron} onPress={() => router.push('/edit-profile')} />
+        <Row icon={ic(CrownIcon)} fill={GOLD} label="Subscription" value={pro ? 'Pro' : 'Free'} right={chevron} onPress={() => router.push('/upgrade')} />
+        <Row icon={ic(ShieldIcon)} fill={FOLDER_COLORS.slate.top} label="Privacy & security" right={chevron} onPress={() => Alert.alert('Privacy & security', 'Your PDFs are stored only on this device. To answer questions, the document and your question are sent to Google Gemini through Firebase. Your account data is stored securely in Firebase.')} />
+        <Row icon={ic(HelpIcon)} fill={FOLDER_COLORS.purple.top} label="Help & support" right={chevron} onPress={() => Alert.alert('Help & support', 'Email us at support@pagewise.app')} last />
       </GlassCard>
 
       <GlassCard style={[styles.group, { marginTop: 14 }]}>

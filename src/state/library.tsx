@@ -18,6 +18,7 @@ import {
 import { Directory, File, Paths } from 'expo-file-system';
 import { MAX_PDF_BYTES, PLAN_LIMITS } from '@/constants/limits';
 import type { Doc, Folder, OrganizePlan } from '@/types/document';
+import { FOLDER_COLOR_KEYS, isFolderColor, nextFolderColor, type FolderColorKey } from '@/constants/folderColors';
 import { dayKey } from '@/utils/format';
 import { db, getModel } from '@/lib/firebase';
 import { useAuth } from '@/state/auth';
@@ -44,8 +45,8 @@ type LibraryCtx = {
   markAllRead: () => Promise<void>;
   /* folders */
   folders: Folder[];
-  createFolder: (name: string) => Promise<string>;
-  renameFolder: (id: string, name: string) => Promise<void>;
+  createFolder: (name: string, color?: FolderColorKey) => Promise<string>;
+  updateFolder: (id: string, patch: { name?: string; color?: FolderColorKey }) => Promise<void>;
   /** Deletes the folder; its documents become unfiled (they are not deleted). */
   deleteFolder: (id: string) => Promise<void>;
   moveDoc: (docId: string, folderId: string | null) => Promise<void>;
@@ -199,7 +200,18 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
         query(collection(db(), 'users', uid, 'folders'), orderBy('name', 'asc')),
         (snap) => {
           if (!snap) return;
-          setFolders(snap.docs.map((d) => ({ id: d.id, name: d.data().name ?? 'Folder', createdAt: millis(d.data().createdAt) })));
+          // Folders made before colours existed get a stable colour from their position.
+          setFolders(
+            snap.docs.map((d, i) => {
+              const x = d.data();
+              return {
+                id: d.id,
+                name: x.name ?? 'Folder',
+                color: isFolderColor(x.color) ? x.color : FOLDER_COLOR_KEYS[i % FOLDER_COLOR_KEYS.length],
+                createdAt: millis(x.createdAt),
+              };
+            }),
+          );
         },
         onListenerError('folders'),
       ),
@@ -401,25 +413,30 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   /* ---------- folders ---------- */
 
   const createFolder = useCallback(
-    async (name: string) => {
+    async (name: string, color?: FolderColorKey) => {
       if (!uid) throw new Error('Please log in again.');
       const clean = name.trim().slice(0, 40);
       if (!clean) throw new Error('Give the folder a name.');
       const existing = folders.find((f) => f.name.toLowerCase() === clean.toLowerCase());
       if (existing) return existing.id;
       const ref = doc(collection(db(), 'users', uid, 'folders'));
-      await setDoc(ref, { name: clean, createdAt: serverTimestamp() });
+      await setDoc(ref, { name: clean, color: color ?? nextFolderColor(folders.map((f) => f.color)), createdAt: serverTimestamp() });
       return ref.id;
     },
     [uid, folders],
   );
 
-  const renameFolder = useCallback(
-    async (id: string, name: string) => {
+  const updateFolder = useCallback(
+    async (id: string, patch: { name?: string; color?: FolderColorKey }) => {
       if (!uid) return;
-      const clean = name.trim().slice(0, 40);
-      if (!clean) throw new Error('Give the folder a name.');
-      await updateDoc(doc(db(), 'users', uid, 'folders', id), { name: clean });
+      const update: Record<string, string> = {};
+      if (patch.name !== undefined) {
+        const clean = patch.name.trim().slice(0, 40);
+        if (!clean) throw new Error('Give the folder a name.');
+        update.name = clean;
+      }
+      if (patch.color) update.color = patch.color;
+      await updateDoc(doc(db(), 'users', uid, 'folders', id), update);
     },
     [uid],
   );
@@ -499,11 +516,14 @@ Reply with JSON only:
     async (plan: OrganizePlan) => {
       if (!uid) return;
       const batch = writeBatch(db());
+      const used = folders.map((f) => f.color as string);
       for (const f of plan.folders) {
         let folderId = f.existingFolderId ?? folders.find((x) => x.name.toLowerCase() === f.name.toLowerCase())?.id;
         if (!folderId) {
           const ref = doc(collection(db(), 'users', uid, 'folders'));
-          batch.set(ref, { name: f.name, createdAt: serverTimestamp() });
+          const color = nextFolderColor(used);
+          used.push(color);
+          batch.set(ref, { name: f.name, color, createdAt: serverTimestamp() });
           folderId = ref.id;
         }
         f.docIds.forEach((id) => batch.update(doc(db(), 'users', uid, 'documents', id), { folderId }));
@@ -531,13 +551,13 @@ Reply with JSON only:
       markAllRead,
       folders,
       createFolder,
-      renameFolder,
+      updateFolder,
       deleteFolder,
       moveDoc,
       suggestOrganization,
       applyOrganization,
     }),
-    [docs, loading, notices, stats, streaming, typing, getDoc, hasLocalFile, addDoc, retryAnalysis, removeDoc, send, clearChat, markAllRead, folders, createFolder, renameFolder, deleteFolder, moveDoc, suggestOrganization, applyOrganization],
+    [docs, loading, notices, stats, streaming, typing, getDoc, hasLocalFile, addDoc, retryAnalysis, removeDoc, send, clearChat, markAllRead, folders, createFolder, updateFolder, deleteFolder, moveDoc, suggestOrganization, applyOrganization],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -30,7 +30,7 @@ export default function FolderScreen() {
 
   const openMenu = () =>
     showActions(folder.name, [
-      { label: 'Rename folder', onPress: () => router.push({ pathname: '/folder-form', params: { id: folder.id } }) },
+      { label: 'Edit name & colour', onPress: () => router.push({ pathname: '/folder-form', params: { id: folder.id } }) },
       {
         label: 'Delete folder',
         destructive: true,

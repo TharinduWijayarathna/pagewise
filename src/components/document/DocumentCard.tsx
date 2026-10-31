@@ -5,7 +5,8 @@ import { confirm, showActions } from '@/utils/actions';
 import type { Doc } from '@/types/document';
 import { dateLabel } from '@/utils/format';
 import { colors, fonts } from '@/constants/theme';
-import { ChevronRightIcon, FolderIcon, GreenDocIcon } from '@/components/ui/Icons';
+import { ChevronRightIcon, DocIcon, FolderIcon } from '@/components/ui/Icons';
+import { tintFor } from '@/constants/folderColors';
 
 /**
  * Compact document row: icon · title + meta · chevron.
@@ -13,7 +14,9 @@ import { ChevronRightIcon, FolderIcon, GreenDocIcon } from '@/components/ui/Icon
  */
 export function DocumentCard({ doc }: { doc: Doc }) {
   const { removeDoc, folders } = useLibrary();
-  const folder = folders.find((f) => f.id === doc.folderId)?.name;
+  const folderObj = folders.find((f) => f.id === doc.folderId);
+  const folder = folderObj?.name;
+  const tint = tintFor(folderObj?.color);
   const open = () => router.push({ pathname: '/document/[id]', params: { id: doc.id } });
   const menu = () =>
     showActions(doc.title, [
@@ -37,7 +40,7 @@ export function DocumentCard({ doc }: { doc: Doc }) {
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <View style={styles.iconBox}>
-        <GreenDocIcon size={22} />
+        <DocIcon size={22} tint={tint} />
       </View>
 
       <View style={styles.body}>
@@ -60,9 +63,9 @@ export function DocumentCard({ doc }: { doc: Doc }) {
               {meta}
             </Text>
             {!!folder && (
-              <View style={styles.folderTag}>
-                <FolderIcon size={11} color={colors.muted} strokeWidth={2} />
-                <Text style={styles.folderText} numberOfLines={1}>
+              <View style={[styles.folderTag, { backgroundColor: `${tint.solid}1F` }]}>
+                <FolderIcon size={11} color={tint.solid} strokeWidth={2.2} />
+                <Text style={[styles.folderText, { color: tint.solid }]} numberOfLines={1}>
                   {folder}
                 </Text>
               </View>

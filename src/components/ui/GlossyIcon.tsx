@@ -26,14 +26,19 @@ type Props = {
   style?: ViewStyle;
   /** Drop the coloured shadow (e.g. inside dense lists). */
   flat?: boolean;
+  /** Custom gradient (e.g. a folder colour). Overrides `tone`'s fill; glyph is white. */
+  fill?: readonly [string, string];
 };
 
 /**
  * Glossy, gradient-filled icon tile — the same look as the green document icon:
  * a vertical gradient, a soft white shine across the top, a light rim and a tinted shadow.
  */
-export function GlossyIcon({ children, tone = 'green', size = 40, shape = 'squircle', style, flat }: Props) {
-  const t = TONES[tone];
+export function GlossyIcon({ children, tone = 'green', size = 40, shape = 'squircle', style, flat, fill }: Props) {
+  const base = TONES[tone];
+  const t = fill
+    ? { ...TONES.green, fill: [fill[0], fill[1], fill[1]] as const, shadow: fill[1], glyph: '#FFFFFF' }
+    : base;
   const radius = shape === 'circle' ? size / 2 : size * 0.32;
   return (
     <View

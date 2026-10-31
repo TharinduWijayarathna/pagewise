@@ -10,6 +10,7 @@ import { PillButton } from '@/components/ui/PillButton';
 import { GlassCard, ScreenHeader, TextField, goBackOr } from '@/components/ui';
 import { useLibrary } from '@/state/library';
 import type { OrganizePlan } from '@/types/document';
+import { FOLDER_COLORS, nextFolderColor } from '@/constants/folderColors';
 import { colors, fonts } from '@/constants/theme';
 import { friendlyError, plural } from '@/utils/format';
 
@@ -55,6 +56,18 @@ export default function Organize() {
 
   const moves = plan?.folders.reduce((n, f) => n + f.docIds.length, 0) ?? 0;
 
+  // Same colour assignment as applyOrganization(), so the preview matches the result.
+  const previewColors = (() => {
+    const used: string[] = folders.map((f) => f.color);
+    return (plan?.folders ?? []).map((f) => {
+      const match = folders.find((x) => x.id === f.existingFolderId || x.name.toLowerCase() === f.name.toLowerCase());
+      if (match) return match.color;
+      const c = nextFolderColor(used);
+      used.push(c);
+      return c;
+    });
+  })();
+
   return (
     <Background>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
@@ -99,12 +112,14 @@ export default function Organize() {
                 <Text style={styles.planSub}>
                   {plural(plan.folders.length, 'folder')} · {plural(moves, 'document')} to organize
                 </Text>
-                {plan.folders.map((f) => {
-                  const reuse = f.existingFolderId || folders.some((x) => x.name.toLowerCase() === f.name.toLowerCase());
+                {plan.folders.map((f, i) => {
+                  const match = folders.find((x) => x.id === f.existingFolderId || x.name.toLowerCase() === f.name.toLowerCase());
+                  const reuse = !!match;
+                  const color = match?.color ?? previewColors[i];
                   return (
                     <GlassCard key={f.name} style={styles.folderCard}>
                       <View style={styles.folderHead}>
-                        <GlossyIcon tone={reuse ? 'ink' : 'green'} size={38} flat>
+                        <GlossyIcon fill={FOLDER_COLORS[color].top} size={38} flat>
                           {(c) => <FolderIcon size={17} color={c} strokeWidth={1.8} />}
                         </GlossyIcon>
                         <View style={{ flex: 1 }}>

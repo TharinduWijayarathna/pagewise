@@ -1,3 +1,4 @@
+import { UNFILED_TINT, type DocTint } from '@/constants/folderColors';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 type P = { size?: number; color?: string; strokeWidth?: number };
@@ -128,26 +129,26 @@ export const UpdateIcon = (p: P) => (
   </Base>
 );
 
-/** Glossy green document glyph used on the document cards */
-export const GreenDocIcon = ({ size = 40 }: { size?: number }) => (
+/** Glossy document glyph. `tint` comes from the document's folder colour (default: brand green). */
+export const DocIcon = ({ size = 40, tint = UNFILED_TINT }: { size?: number; tint?: DocTint }) => (
   <Svg width={size} height={size * 1.15} viewBox="0 0 40 46">
     <Defs>
       <LinearGradient id="docTop" x1="0" y1="0" x2="0" y2="1">
-        <Stop offset="0" stopColor="#7FD07A" />
-        <Stop offset="1" stopColor="#4DAA4A" />
+        <Stop offset="0" stopColor={tint.top[0]} />
+        <Stop offset="1" stopColor={tint.top[1]} />
       </LinearGradient>
       <LinearGradient id="docBottom" x1="0" y1="0" x2="0" y2="1">
-        <Stop offset="0" stopColor="#E8F3E2" />
-        <Stop offset="1" stopColor="#CFE3C8" />
+        <Stop offset="0" stopColor={tint.base[0]} />
+        <Stop offset="1" stopColor={tint.base[1]} />
       </LinearGradient>
       <LinearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
-        <Stop offset="0" stopColor="#B6E6AE" />
-        <Stop offset="1" stopColor="#6CC267" />
+        <Stop offset="0" stopColor={tint.fold[0]} />
+        <Stop offset="1" stopColor={tint.fold[1]} />
       </LinearGradient>
     </Defs>
     {/* base sheet (pale) */}
     <Path d="M6 4h19l11 11v25a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z" fill="url(#docBottom)" />
-    {/* green upper part */}
+    {/* coloured upper part */}
     <Path d="M6 4h19l11 11v13c-6 2-12 3-17 3S8 30 2 28V8a4 4 0 0 1 4-4z" fill="url(#docTop)" />
     {/* fold */}
     <Path d="M25 4v7a4 4 0 0 0 4 4h7z" fill="url(#fold)" />
@@ -155,6 +156,9 @@ export const GreenDocIcon = ({ size = 40 }: { size?: number }) => (
     <Rect x="10" y="20" width="9" height="3" rx="1.5" fill="#FFFFFF" opacity={0.95} />
   </Svg>
 );
+
+/** Brand-green document icon (unfiled documents, upload, etc.). */
+export const GreenDocIcon = ({ size = 40 }: { size?: number }) => <DocIcon size={size} />;
 
 export const MailIcon = (p: P) => (
   <Base {...p}>

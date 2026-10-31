@@ -6,6 +6,7 @@ import { CheckIcon, FolderIcon, FolderPlusIcon, FileTextIcon } from '@/component
 import { GlossyIcon } from '@/components/ui/GlossyIcon';
 import { GlassCard, ScreenHeader, goBackOr } from '@/components/ui';
 import { useLibrary } from '@/state/library';
+import { FOLDER_COLORS } from '@/constants/folderColors';
 import { colors, fonts } from '@/constants/theme';
 
 /** "Move to folder" picker. Param: `docId`. */
@@ -67,7 +68,7 @@ export default function MoveToFolder() {
                 label={f.name}
                 count={docs.filter((d) => d.folderId === f.id).length}
                 icon={
-                  <GlossyIcon tone="ink" size={40} flat>
+                  <GlossyIcon fill={FOLDER_COLORS[f.color].top} size={40} flat>
                     {(c) => <FolderIcon size={18} color={c} strokeWidth={1.8} />}
                   </GlossyIcon>
                 }

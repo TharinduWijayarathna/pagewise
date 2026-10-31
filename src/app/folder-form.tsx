@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Background } from '@/components/ui/Background';
-import { FolderIcon } from '@/components/ui/Icons';
+import { CheckIcon, FolderIcon } from '@/components/ui/Icons';
+import { FOLDER_COLORS, FOLDER_COLOR_KEYS, nextFolderColor, type FolderColorKey } from '@/constants/folderColors';
 import { GlossyIcon } from '@/components/ui/GlossyIcon';
 import { PillButton } from '@/components/ui/PillButton';
 import { ScreenHeader, TextField, goBackOr } from '@/components/ui';
@@ -20,9 +21,10 @@ const SUGGESTIONS = ['Work', 'Research', 'Finance', 'Legal', 'Personal'];
  */
 export default function FolderForm() {
   const { id, moveDocId } = useLocalSearchParams<{ id?: string; moveDocId?: string }>();
-  const { folders, createFolder, renameFolder, moveDoc } = useLibrary();
+  const { folders, createFolder, updateFolder, moveDoc } = useLibrary();
   const existing = folders.find((f) => f.id === id);
   const [name, setName] = useState(existing?.name ?? '');
+  const [color, setColor] = useState<FolderColorKey>(existing?.color ?? nextFolderColor(folders.map((f) => f.color)));
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
 
@@ -31,9 +33,9 @@ export default function FolderForm() {
     setSaving(true);
     try {
       if (existing) {
-        await renameFolder(existing.id, name);
+        await updateFolder(existing.id, { name, color });
       } else {
-        const folderId = await createFolder(name);
+        const folderId = await createFolder(name, color);
         if (moveDocId) await moveDoc(moveDocId, folderId);
       }
       router.back();
@@ -47,9 +49,9 @@ export default function FolderForm() {
     <Background>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-          <ScreenHeader title={existing ? 'Rename folder' : 'New folder'} onBack={goBackOr('/home')} />
+          <ScreenHeader title={existing ? 'Edit folder' : 'New folder'} onBack={goBackOr('/home')} />
           <View style={styles.body}>
-            <GlossyIcon tone="ink" size={64} style={{ alignSelf: 'center', marginBottom: 22 }}>
+            <GlossyIcon fill={FOLDER_COLORS[color].top} size={64} style={{ alignSelf: 'center', marginBottom: 22 }}>
               {(c) => <FolderIcon size={28} color={c} strokeWidth={1.8} />}
             </GlossyIcon>
             <TextField
@@ -64,6 +66,26 @@ export default function FolderForm() {
               returnKeyType="done"
               error={error}
             />
+            <Text style={styles.label}>Colour</Text>
+            <View style={styles.swatches}>
+              {FOLDER_COLOR_KEYS.map((k) => {
+                const on = k === color;
+                return (
+                  <Pressable
+                    key={k}
+                    onPress={() => setColor(k)}
+                    accessibilityLabel={`${FOLDER_COLORS[k].label}${on ? ', selected' : ''}`}
+                    hitSlop={4}
+                    style={[styles.swatchRing, on && { borderColor: FOLDER_COLORS[k].solid }]}
+                  >
+                    <View style={[styles.swatch, { backgroundColor: FOLDER_COLORS[k].solid }]}>
+                      {on && <CheckIcon size={15} color="#FFFFFF" strokeWidth={2.8} />}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             {!existing && (
               <View style={styles.suggestions}>
                 {SUGGESTIONS.filter((s) => !folders.some((f) => f.name.toLowerCase() === s.toLowerCase())).map((s) => (
@@ -85,6 +107,10 @@ export default function FolderForm() {
 
 const styles = StyleSheet.create({
   body: { flex: 1, paddingHorizontal: 28, paddingTop: 12 },
+  label: { fontFamily: fonts.medium, fontSize: 13.5, color: colors.muted, marginBottom: 10, marginLeft: 4 },
+  swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 22 },
+  swatchRing: { padding: 3, borderRadius: 22, borderWidth: 2, borderColor: 'transparent' },
+  swatch: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   suggestion: {
     fontFamily: fonts.medium,

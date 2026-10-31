@@ -2,6 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '@/constants/theme';
 import type { Doc, Folder } from '@/types/document';
 import { FolderIcon, FolderPlusIcon, SparklesIcon } from '@/components/ui/Icons';
+import { FOLDER_COLORS, type FolderColorKey } from '@/constants/folderColors';
 
 type Props = {
   folders: Folder[];
@@ -17,11 +18,15 @@ type Props = {
 export function FolderChips({ folders, docs, selected = 'all', onSelect, onNew, onOrganize }: Props) {
   const count = (id: string) => docs.filter((d) => (id === 'all' ? true : d.folderId === id)).length;
 
-  const Chip = ({ id, label }: { id: string; label: string }) => {
+  const Chip = ({ id, label, color }: { id: string; label: string; color?: FolderColorKey }) => {
     const on = selected === id;
+    const solid = color ? FOLDER_COLORS[color].solid : colors.ink;
     return (
-      <Pressable onPress={() => onSelect(id)} style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && { opacity: 0.75 }]}>
-        {id !== 'all' && <FolderIcon size={15} color={on ? '#FFFFFF' : colors.text} strokeWidth={1.8} />}
+      <Pressable
+        onPress={() => onSelect(id)}
+        style={({ pressed }) => [styles.chip, on && { backgroundColor: solid, borderColor: solid }, pressed && { opacity: 0.75 }]}
+      >
+        {id !== 'all' && <FolderIcon size={15} color={on ? '#FFFFFF' : solid} strokeWidth={2} />}
         <Text style={[styles.label, on && { color: '#FFFFFF' }]} numberOfLines={1}>
           {label}
         </Text>
@@ -36,7 +41,7 @@ export function FolderChips({ folders, docs, selected = 'all', onSelect, onNew, 
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
       <Chip id="all" label="All" />
       {folders.map((f) => (
-        <Chip key={f.id} id={f.id} label={f.name} />
+        <Chip key={f.id} id={f.id} label={f.name} color={f.color} />
       ))}
       {onNew && (
         <Pressable onPress={onNew} style={({ pressed }) => [styles.chip, styles.ghost, pressed && { opacity: 0.75 }]}>
@@ -68,7 +73,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.9)',
     maxWidth: 220,
   },
-  chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   ghost: { borderStyle: 'dashed', borderColor: 'rgba(38,37,31,0.25)', backgroundColor: 'rgba(255,255,255,0.2)' },
   ai: { backgroundColor: 'rgba(93,180,88,0.12)', borderColor: 'rgba(93,180,88,0.35)' },
   label: { fontFamily: fonts.medium, fontSize: 14, color: colors.text, flexShrink: 1 },

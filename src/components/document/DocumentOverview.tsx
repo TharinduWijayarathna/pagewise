@@ -1,7 +1,9 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { Doc } from '@/types/document';
 import { colors, fonts } from '@/constants/theme';
-import { GreenDocIcon, SparklesIcon } from '@/components/ui/Icons';
+import { DocIcon, SparklesIcon } from '@/components/ui/Icons';
+import { tintFor } from '@/constants/folderColors';
+import { useLibrary } from '@/state/library';
 import { PillButton } from '@/components/ui/PillButton';
 
 const fmtSize = (b: number) => (b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1e3))} KB`);
@@ -11,11 +13,12 @@ const fmtSize = (b: number) => (b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math
  * (summary + key highlights), styled like the page preview in the design.
  */
 export function DocumentOverview({ doc, onRetry }: { doc: Doc; onRetry?: () => void }) {
+  const { folders } = useLibrary();
   return (
     <View style={styles.frame}>
       <View style={styles.page}>
         <View style={styles.headRow}>
-          <GreenDocIcon size={22} />
+          <DocIcon size={22} tint={tintFor(folders.find((f) => f.id === doc.folderId)?.color)} />
           <Text style={styles.header} numberOfLines={1}>
             {doc.title.toUpperCase()}
           </Text>

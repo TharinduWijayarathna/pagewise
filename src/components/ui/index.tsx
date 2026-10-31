@@ -203,6 +203,7 @@ export function AppLogo({ size = 64 }: { size?: number }) {
 export function Row({
   icon,
   tone = 'green',
+  fill,
   label,
   value,
   onPress,
@@ -213,6 +214,8 @@ export function Row({
   /** Render prop receiving the glyph colour for the glossy tile. */
   icon: (color: string) => React.ReactNode;
   tone?: GlossyTone;
+  /** Custom gradient for the icon tile (overrides tone). */
+  fill?: readonly [string, string];
   label: string;
   value?: string;
   onPress?: () => void;
@@ -226,7 +229,7 @@ export function Row({
       disabled={!onPress}
       style={({ pressed }) => [ui.row, !last && ui.rowBorder, pressed && { opacity: 0.6 }]}
     >
-      <GlossyIcon tone={danger ? 'rose' : tone} size={38} flat>
+      <GlossyIcon tone={danger ? 'rose' : tone} fill={danger ? undefined : fill} size={38} flat>
         {icon}
       </GlossyIcon>
       <Text style={[ui.rowLabel, danger && { color: '#B9473A' }]}>{label}</Text>

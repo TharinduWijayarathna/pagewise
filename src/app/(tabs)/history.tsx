@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { GreenDocIcon, MessageIcon } from '@/components/ui/Icons';
+import { DocIcon, MessageIcon } from '@/components/ui/Icons';
+import { tintFor } from '@/constants/folderColors';
 import { GlossyIcon } from '@/components/ui/GlossyIcon';
 import { plainText } from '@/components/chat/RichText';
 import { PillButton } from '@/components/ui/PillButton';
@@ -23,7 +24,7 @@ function bucket(at: number) {
 }
 
 export default function History() {
-  const { docs } = useLibrary();
+  const { docs, folders } = useLibrary();
 
   const groups = useMemo(() => {
     const items = docs
@@ -69,26 +70,23 @@ export default function History() {
               style={({ pressed }) => [styles.item, pressed && { opacity: 0.8 }]}
             >
               <View style={styles.iconBox}>
-                <GreenDocIcon size={24} />
+                <DocIcon size={22} tint={tintFor(folders.find((f) => f.id === doc.folderId)?.color)} />
               </View>
-              <View style={{ flex: 1 }}>
-                <View style={styles.topRow}>
+              <View style={styles.body}>
+                <View style={styles.row}>
                   <Text style={styles.docTitle} numberOfLines={1}>
                     {doc.title}
                   </Text>
                   <Text style={styles.time}>{timeAgo(last.at)}</Text>
                 </View>
-                <Text style={styles.question} numberOfLines={1}>
-                  “{lastQ?.text}”
-                </Text>
-                <Text style={styles.answer} numberOfLines={2}>
-                  {last.role === 'ai' ? last.text : 'Waiting for reply…'}
-                </Text>
-                <View style={styles.countPill}>
-                  <MessageIcon size={12} color={colors.muted} strokeWidth={1.6} />
-                  <Text style={styles.countText}>
-                    {count} question{count === 1 ? '' : 's'}
+                <View style={styles.row}>
+                  <Text style={styles.question} numberOfLines={1}>
+                    {lastQ?.text}
                   </Text>
+                  <View style={styles.count} accessibilityLabel={`${count} question${count === 1 ? '' : 's'}`}>
+                    <MessageIcon size={11} color={colors.muted} strokeWidth={1.8} />
+                    <Text style={styles.countText}>{count}</Text>
+                  </View>
                 </View>
               </View>
             </Pressable>
@@ -102,39 +100,42 @@ export default function History() {
 const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 14,
-    padding: 16,
-    borderRadius: 24,
+    paddingVertical: 12,
+    paddingLeft: 12,
+    paddingRight: 14,
+    borderRadius: 20,
     backgroundColor: colors.glass,
     borderWidth: 1,
     borderColor: colors.line,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   iconBox: {
-    width: 50,
-    height: 58,
+    width: 46,
+    height: 50,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  docTitle: { flex: 1, fontFamily: fonts.semibold, fontSize: 15.5, color: colors.text },
+  body: { flex: 1, gap: 4 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  docTitle: { flex: 1, fontFamily: fonts.medium, fontSize: 15.5, color: colors.text, letterSpacing: -0.2 },
   time: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.faint },
-  question: { fontFamily: fonts.medium, fontSize: 13.5, color: colors.text, marginTop: 4 },
-  answer: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.muted, marginTop: 3 },
-  countPill: {
+  question: { flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
+  count: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    alignSelf: 'flex-start',
-    marginTop: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: 'rgba(38,37,31,0.06)',
   },
-  countText: { fontFamily: fonts.medium, fontSize: 12, color: colors.muted },
+  countText: { fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted },
   empty: { alignItems: 'center', gap: 8, marginTop: 28, paddingVertical: 30 },
   emptyTitle: { fontFamily: fonts.semibold, fontSize: 16, color: colors.text, marginTop: 6 },
   emptyText: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted, textAlign: 'center', marginBottom: 10 },
