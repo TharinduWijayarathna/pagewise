@@ -31,3 +31,13 @@ export const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slic
 
 /** "3 documents", "1 document" */
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** Human-readable message for Firestore / network errors shown in forms. */
+export function friendlyError(err: unknown) {
+  const code = String((err as { code?: string })?.code ?? '');
+  const msg = String((err as Error)?.message ?? '');
+  if (code.includes('permission-denied') || msg.includes('permission-denied'))
+    return 'You don’t have permission to do that right now. Please try again in a moment.';
+  if (code.includes('unavailable') || /network/i.test(msg)) return 'No internet connection. Check your network and try again.';
+  return msg.replace(/^\[[^\]]+\]\s*/, '') || 'Something went wrong. Please try again.';
+}

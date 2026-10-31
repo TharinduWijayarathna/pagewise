@@ -1,5 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { useLibrary } from '@/state/library';
+import { confirm, showActions } from '@/utils/actions';
 import type { Doc } from '@/types/document';
 import { dateLabel } from '@/utils/format';
 import { colors, fonts } from '@/constants/theme';
@@ -7,10 +9,20 @@ import { FileTextIcon, GreenDocIcon } from '@/components/ui/Icons';
 import { PillButton } from '@/components/ui/PillButton';
 
 export function DocumentCard({ doc }: { doc: Doc }) {
+  const { removeDoc } = useLibrary();
   const open = () => router.push({ pathname: '/document/[id]', params: { id: doc.id } });
+  const menu = () =>
+    showActions(doc.title, [
+      { label: 'Move to folder', onPress: () => router.push({ pathname: '/move', params: { docId: doc.id } }) },
+      {
+        label: 'Delete document',
+        destructive: true,
+        onPress: () => confirm('Delete document?', `“${doc.title}” and its chat history will be removed.`, 'Delete', () => removeDoc(doc.id)),
+      },
+    ]);
 
   return (
-    <Pressable onPress={open} style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}>
+    <Pressable onPress={open} onLongPress={menu} delayLongPress={350} style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}>
       <View style={styles.iconBox}>
         <GreenDocIcon size={34} />
       </View>

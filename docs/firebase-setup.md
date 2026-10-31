@@ -55,6 +55,9 @@ and replace the old ones — they now contain the Google sign-in IDs.
 These rules let each person read/write only their own data and stop anyone from upgrading
 themselves to Pro.
 
+> **Updating the app?** When `firestore.rules` changes (for example when folders were added), paste and **Publish** it again.
+> Otherwise you'll see `firestore/permission-denied` for the new feature.
+
 ## 6. AI Logic (Gemini)
 1. **Build → AI Logic → Get started**.
 2. Choose **Gemini Developer API** (works on the free plan). Firebase keeps the API key on Google's side —

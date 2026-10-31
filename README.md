@@ -18,6 +18,7 @@ Expo · React Native · TypeScript · Firebase · Gemini
 - 📄 **Upload any PDF** (up to 14 MB). Gemini reads it and writes a title, summary and key highlights.
 - 💬 **Ask questions** and get answers that stream in live, formatted with bullets, **bold** figures and page tags like `p. 4`.
 - ⚡ **Quick actions**: Summaries, Analyze, Update.
+- 🗂️ **Folders**: create folders and move documents into them, or let **Organize with AI** propose folders for you to review and apply.
 - 🎙️ **Voice typing**: tap the mic and speak your question.
 - 🕘 **History & Insights**: past conversations, questions per day, most-discussed documents.
 - 🔐 **Accounts**: email/password, Google, and Sign in with Apple (iOS). Password reset included.

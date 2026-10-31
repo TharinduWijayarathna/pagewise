@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Background } from '@/components/ui/Background';
 import { GlossyIcon } from '@/components/ui/GlossyIcon';
 import { DocumentCard } from '@/components/document/DocumentCard';
+import { FolderChips } from '@/components/document/FolderChips';
 import { BellIcon, CloseIcon, PlusIcon, SearchIcon } from '@/components/ui/Icons';
 import { CircleButton } from '@/components/ui';
 import { useLibrary } from '@/state/library';
@@ -12,7 +13,7 @@ import { colors, fonts } from '@/constants/theme';
 import { plural } from '@/utils/format';
 
 export default function Home() {
-  const { docs, notices, loading, stats } = useLibrary();
+  const { docs, notices, loading, stats, folders } = useLibrary();
   const [query, setQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const unread = notices.some((n) => !n.read);
@@ -64,6 +65,20 @@ export default function Home() {
               </Pressable>
             )}
           </View>
+
+          {/* folders */}
+          {(docs.length > 0 || folders.length > 0) && (
+            <View style={styles.folders}>
+              <FolderChips
+                folders={folders}
+                docs={docs}
+                selected="all"
+                onSelect={(id) => id !== 'all' && router.push({ pathname: '/folder/[id]', params: { id } })}
+                onNew={() => router.push('/folder-form')}
+                onOrganize={docs.length >= 2 ? () => router.push('/organize') : undefined}
+              />
+            </View>
+          )}
 
           {/* recent */}
           <View style={styles.sectionRow}>
@@ -138,6 +153,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  folders: { marginTop: 18, marginRight: -24 },
   sectionRow: {
     marginTop: 30,
     marginBottom: 14,

@@ -1,8 +1,5 @@
 import { useRef, useState } from 'react';
 import {
-  ActionSheetIOS,
-  Alert,
-  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -28,6 +25,7 @@ import {
 } from '@/components/ui/Icons';
 import { CircleButton, ScreenHeader, goBackOr } from '@/components/ui';
 import { useLibrary, useMessages } from '@/state/library';
+import { confirm, showActions } from '@/utils/actions';
 import { AiBubble, UserBubble } from '@/components/chat/ChatBubble';
 import { GlossyIcon } from '@/components/ui/GlossyIcon';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
@@ -41,7 +39,7 @@ const QUICK = [
 
 export default function DocumentChat() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getDoc, typing, streaming, send, clearChat, removeDoc, retryAnalysis, hasLocalFile } = useLibrary();
+  const { getDoc, typing, streaming, send, clearChat, removeDoc, retryAnalysis, hasLocalFile, folders } = useLibrary();
   const doc = getDoc(id);
   const msgs = useMessages(id);
   const busy = !!(id && typing[id]);
@@ -69,39 +67,25 @@ export default function DocumentChat() {
     setText('');
   };
 
-  const openMenu = () => {
-    const actions = [
-      { label: 'Share summary', run: () => Share.share({ message: `${doc.title}${doc.summary ? `\n\n${doc.summary}` : ''}\n\nShared from Pagewise` }) },
-      { label: 'Clear conversation', run: () => clearChat(doc.id) },
+  const folderName = folders.find((f) => f.id === doc.folderId)?.name;
+  const openMenu = () =>
+    showActions(doc.title, [
+      {
+        label: folderName ? `Move to folder (in ${folderName})` : 'Move to folder',
+        onPress: () => router.push({ pathname: '/move', params: { docId: doc.id } }),
+      },
+      { label: 'Share summary', onPress: () => Share.share({ message: `${doc.title}${doc.summary ? `\n\n${doc.summary}` : ''}\n\nShared from Pagewise` }) },
+      { label: 'Clear conversation', onPress: () => clearChat(doc.id) },
       {
         label: 'Delete document',
         destructive: true,
-        run: () =>
-          Alert.alert('Delete document?', `“${doc.title}” and its chat history will be removed.`, [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Delete',
-              style: 'destructive',
-              onPress: () => {
-                router.back();
-                removeDoc(doc.id);
-              },
-            },
-          ]),
+        onPress: () =>
+          confirm('Delete document?', `“${doc.title}” and its chat history will be removed.`, 'Delete', () => {
+            goBackOr('/home')();
+            removeDoc(doc.id);
+          }),
       },
-    ];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: [...actions.map((a) => a.label), 'Cancel'], destructiveButtonIndex: 2, cancelButtonIndex: 3 },
-        (i) => actions[i]?.run(),
-      );
-    } else {
-      Alert.alert(doc.title, undefined, [
-        ...actions.map((a) => ({ text: a.label, style: a.destructive ? ('destructive' as const) : undefined, onPress: a.run })),
-        { text: 'Cancel', style: 'cancel' as const },
-      ]);
-    }
-  };
+    ]);
 
   return (
     <Background>

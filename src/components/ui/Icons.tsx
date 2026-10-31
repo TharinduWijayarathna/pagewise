@@ -309,3 +309,24 @@ export const CloseIcon = (p: P) => (
     <Path d="M18 6 6 18M6 6l12 12" />
   </Base>
 );
+
+export const FolderIcon = (p: P) => (
+  <Base {...p}>
+    <Path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />
+  </Base>
+);
+
+export const FolderPlusIcon = (p: P) => (
+  <Base {...p}>
+    <Path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />
+    <Path d="M12 11v5M9.5 13.5h5" />
+  </Base>
+);
+
+export const MoreIcon = (p: P) => (
+  <Base {...p}>
+    <Circle cx="6" cy="12" r="1.3" />
+    <Circle cx="12" cy="12" r="1.3" />
+    <Circle cx="18" cy="12" r="1.3" />
+  </Base>
+);

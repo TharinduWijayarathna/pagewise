@@ -16,4 +16,18 @@ export type Doc = {
   lastQuestion?: string;
   lastAnswer?: string;
   questionCount: number;
+  /** Folder this document lives in; null/undefined = unfiled. */
+  folderId?: string | null;
 };
+
+export type Folder = {
+  id: string;
+  name: string;
+  createdAt: number;
+};
+
+/** AI organize suggestion: folders to create/reuse and which documents go in each. */
+export type OrganizePlan = {
+  folders: { name: string; existingFolderId?: string | null; docIds: string[] }[];
+};
+

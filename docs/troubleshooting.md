@@ -36,7 +36,7 @@ use `CODE_SIGN_IDENTITY=-` instead.
 - On an emulator, a Google account must be added to the device.
 
 **`firestore/permission-denied`**
-- The Firestore rules weren't published — paste [`firestore.rules`](../firestore.rules) and click **Publish**.
+- The Firestore rules weren't published, or are out of date (e.g. after the folders feature was added) — paste [`firestore.rules`](../firestore.rules) and click **Publish**.
 - An account created during an interrupted sign-up may be missing its profile; the app repairs this
   automatically on the next sign-in (just log in again).
 

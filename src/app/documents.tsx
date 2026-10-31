@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Background } from '@/components/ui/Background';
 import { DocumentCard } from '@/components/document/DocumentCard';
+import { FolderChips } from '@/components/document/FolderChips';
 import { PlusIcon, SearchIcon } from '@/components/ui/Icons';
 import { CircleButton, ScreenHeader, goBackOr } from '@/components/ui';
 import { useLibrary } from '@/state/library';
@@ -12,17 +13,19 @@ import { colors, fonts } from '@/constants/theme';
 const SORTS = ['Recent', 'Name', 'Pages'] as const;
 
 export default function Documents() {
-  const { docs } = useLibrary();
+  const { docs, folders } = useLibrary();
   const [query, setQuery] = useState('');
+  const [folder, setFolder] = useState('all');
   const [sort, setSort] = useState<(typeof SORTS)[number]>('Recent');
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const out = q ? docs.filter((d) => d.title.toLowerCase().includes(q)) : [...docs];
+    const inFolder = folder === 'all' ? docs : docs.filter((d) => d.folderId === folder);
+    const out = q ? inFolder.filter((d) => d.title.toLowerCase().includes(q)) : [...inFolder];
     if (sort === 'Name') out.sort((a, b) => a.title.localeCompare(b.title));
     if (sort === 'Pages') out.sort((a, b) => b.pages - a.pages);
     return out;
-  }, [docs, query, sort]);
+  }, [docs, query, sort, folder]);
 
   return (
     <Background>
@@ -51,11 +54,22 @@ export default function Documents() {
                 <TextInput
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="Search Document"
-                  placeholderTextColor={colors.muted}
+                  placeholder="Search your documents"
+                  placeholderTextColor={colors.faint}
                   style={styles.searchInput}
                 />
               </View>
+              {folders.length > 0 && (
+                <View style={styles.folderRow}>
+                  <FolderChips
+                    folders={folders}
+                    docs={docs}
+                    selected={folder}
+                    onSelect={setFolder}
+                    onOrganize={docs.length >= 2 ? () => router.push('/organize') : undefined}
+                  />
+                </View>
+              )}
               <View style={styles.sorts}>
                 {SORTS.map((s) => (
                   <Pressable key={s} onPress={() => setSort(s)} style={[styles.sort, sort === s && styles.sortOn]}>
@@ -65,7 +79,7 @@ export default function Documents() {
               </View>
             </>
           }
-          ListEmptyComponent={<Text style={styles.empty}>No documents found.</Text>}
+          ListEmptyComponent={<Text style={styles.empty}>{folder === 'all' ? 'No documents found.' : 'No documents in this folder yet.'}</Text>}
         />
       </SafeAreaView>
     </Background>
@@ -87,6 +101,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 15, color: colors.text, paddingVertical: 0 },
+  folderRow: { marginTop: 16, marginRight: -20 },
   sorts: { flexDirection: 'row', gap: 8, marginTop: 16, marginBottom: 16 },
   sort: {
     paddingHorizontal: 16,

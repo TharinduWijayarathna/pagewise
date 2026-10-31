@@ -64,6 +64,10 @@ function RootStack() {
       <Stack.Screen name="upload" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       <Stack.Screen name="edit-profile" />
       <Stack.Screen name="upgrade" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="folder/[id]" />
+      <Stack.Screen name="folder-form" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="move" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="organize" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
     </Stack>
   );
 }

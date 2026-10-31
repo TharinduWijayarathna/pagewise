@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   collection,
   deleteDoc,
@@ -17,7 +17,7 @@ import {
 } from '@react-native-firebase/firestore';
 import { Directory, File, Paths } from 'expo-file-system';
 import { MAX_PDF_BYTES, PLAN_LIMITS } from '@/constants/limits';
-import type { Doc } from '@/types/document';
+import type { Doc, Folder, OrganizePlan } from '@/types/document';
 import { dayKey } from '@/utils/format';
 import { db, getModel } from '@/lib/firebase';
 import { useAuth } from '@/state/auth';
@@ -42,6 +42,16 @@ type LibraryCtx = {
   send: (docId: string, text: string, history: Msg[]) => Promise<void>;
   clearChat: (docId: string) => Promise<void>;
   markAllRead: () => Promise<void>;
+  /* folders */
+  folders: Folder[];
+  createFolder: (name: string) => Promise<string>;
+  renameFolder: (id: string, name: string) => Promise<void>;
+  /** Deletes the folder; its documents become unfiled (they are not deleted). */
+  deleteFolder: (id: string) => Promise<void>;
+  moveDoc: (docId: string, folderId: string | null) => Promise<void>;
+  /** Ask Gemini to propose folders for the library (optionally following an instruction). */
+  suggestOrganization: (instruction?: string) => Promise<OrganizePlan>;
+  applyOrganization: (plan: OrganizePlan) => Promise<void>;
 };
 
 const Ctx = createContext<LibraryCtx | null>(null);
@@ -108,18 +118,42 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const [stats, setStats] = useState<Stats>({ totalQuestions: 0, questionsByDay: {} });
   const [streaming, setStreaming] = useState<Record<string, string | undefined>>({});
   const [typing, setTyping] = useState<Record<string, boolean>>({});
+  const [folders, setFolders] = useState<Folder[]>([]);
 
-  // Live subscriptions for the signed-in user.
+  // Clear everything when the signed-in user changes.
   useEffect(() => {
     setDocs([]);
     setNotices([]);
     setStats({ totalQuestions: 0, questionsByDay: {} });
+    setFolders([]);
+    setLoading(!!uid);
+  }, [uid]);
+
+  // Firestore stops a listener for good after an error (e.g. rules not yet published).
+  // Bumping `attempt` re-subscribes everything, with a growing delay (5s, 10s, … up to 60s).
+  const [attempt, setAttempt] = useState(0);
+  const retryTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const onListenerError = useCallback(
+    (name: string) => (err: Error) => {
+      if (__DEV__) console.warn(`[Pagewise] ${name} listener:`, err.message);
+      if (retryTimer.current) return;
+      retryTimer.current = setTimeout(() => {
+        retryTimer.current = undefined;
+        setAttempt((a) => a + 1);
+      }, Math.min(60_000, 5_000 * (attempt + 1)));
+    },
+    [attempt],
+  );
+  useEffect(() => () => clearTimeout(retryTimer.current), []);
+
+  // Live subscriptions for the signed-in user.
+  useEffect(() => {
     if (!uid) return;
-    setLoading(true);
     const unsubs = [
       onSnapshot(
         query(collection(db(), 'users', uid, 'documents'), orderBy('createdAt', 'desc')),
         (snap) => {
+          if (!snap) return;
           setDocs(
             snap.docs.map((d) => {
               const x = d.data();
@@ -138,30 +172,45 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
                 lastQuestion: x.lastQuestion,
                 lastAnswer: x.lastAnswer,
                 questionCount: x.questionCount ?? 0,
+                folderId: x.folderId ?? null,
               } satisfies Doc;
             }),
           );
           setLoading(false);
         },
-        () => setLoading(false),
+        (err) => {
+          setLoading(false);
+          onListenerError('documents')(err);
+        },
       ),
       onSnapshot(
         query(collection(db(), 'users', uid, 'notifications'), orderBy('createdAt', 'desc'), limit(30)),
         (snap) =>
+          snap &&
           setNotices(
             snap.docs.map((d) => {
               const x = d.data();
               return { id: d.id, title: x.title, body: x.body, docId: x.docId, read: !!x.read, at: millis(x.createdAt) };
             }),
           ),
+        onListenerError('notifications'),
+      ),
+      onSnapshot(
+        query(collection(db(), 'users', uid, 'folders'), orderBy('name', 'asc')),
+        (snap) => {
+          if (!snap) return;
+          setFolders(snap.docs.map((d) => ({ id: d.id, name: d.data().name ?? 'Folder', createdAt: millis(d.data().createdAt) })));
+        },
+        onListenerError('folders'),
       ),
       onSnapshot(doc(db(), 'users', uid), (snap) => {
         const x = snap?.data();
         setStats({ totalQuestions: x?.totalQuestions ?? 0, questionsByDay: x?.questionsByDay ?? {} });
-      }),
+      }, onListenerError('profile')),
     ];
     return () => unsubs.forEach((u) => u());
-  }, [uid]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-subscribe on user change or retry only
+  }, [uid, attempt]);
 
   const getDoc = useCallback((id?: string) => docs.find((d) => d.id === id), [docs]);
   const hasLocalFile = useCallback((id: string) => localFile(id).exists, []);
@@ -348,6 +397,122 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     await batch.commit();
   }, [uid, notices]);
 
+
+  /* ---------- folders ---------- */
+
+  const createFolder = useCallback(
+    async (name: string) => {
+      if (!uid) throw new Error('Please log in again.');
+      const clean = name.trim().slice(0, 40);
+      if (!clean) throw new Error('Give the folder a name.');
+      const existing = folders.find((f) => f.name.toLowerCase() === clean.toLowerCase());
+      if (existing) return existing.id;
+      const ref = doc(collection(db(), 'users', uid, 'folders'));
+      await setDoc(ref, { name: clean, createdAt: serverTimestamp() });
+      return ref.id;
+    },
+    [uid, folders],
+  );
+
+  const renameFolder = useCallback(
+    async (id: string, name: string) => {
+      if (!uid) return;
+      const clean = name.trim().slice(0, 40);
+      if (!clean) throw new Error('Give the folder a name.');
+      await updateDoc(doc(db(), 'users', uid, 'folders', id), { name: clean });
+    },
+    [uid],
+  );
+
+  const deleteFolder = useCallback(
+    async (id: string) => {
+      if (!uid) return;
+      const batch = writeBatch(db());
+      docs.filter((d) => d.folderId === id).forEach((d) => batch.update(doc(db(), 'users', uid, 'documents', d.id), { folderId: null }));
+      batch.delete(doc(db(), 'users', uid, 'folders', id));
+      await batch.commit();
+    },
+    [uid, docs],
+  );
+
+  const moveDoc = useCallback(
+    async (docId: string, folderId: string | null) => {
+      if (!uid) return;
+      await updateDoc(doc(db(), 'users', uid, 'documents', docId), { folderId });
+    },
+    [uid],
+  );
+
+  const suggestOrganization = useCallback(
+    async (instruction?: string): Promise<OrganizePlan> => {
+      const ready = docs.filter((d) => d.status === 'ready');
+      if (ready.length < 2) throw new Error('Add at least two documents for Pagewise to organize.');
+      const model = await getModel('analyze');
+      const library = ready.map((d) => ({
+        id: d.id,
+        title: d.title,
+        summary: (d.summary ?? '').slice(0, 280),
+        highlights: (d.highlights ?? []).slice(0, 3),
+        currentFolderId: d.folderId ?? null,
+      }));
+      const prompt = `You organize a user's PDF library into folders.
+
+Existing folders (reuse one when it fits, by putting its id in "existingFolderId"):
+${JSON.stringify(folders.map((f) => ({ id: f.id, name: f.name })))}
+
+Documents:
+${JSON.stringify(library)}
+
+${instruction?.trim() ? `The user's instruction (follow it): "${instruction.trim()}"` : 'Group documents by topic or purpose.'}
+
+Rules:
+- Use 2 to 6 folders. Folder names are short (1–3 words), Title Case, no emoji.
+- Put every document id in exactly one folder. Only use the ids given.
+- Prefer reusing existing folders over creating near-duplicates.
+
+Reply with JSON only:
+{"folders": [{"name": string, "existingFolderId": string | null, "docIds": string[]}]}`;
+      const res = await model.generateContent(prompt);
+      const raw = res.response.text().replace(/^```(?:json)?|```$/g, '').trim();
+      const parsed = JSON.parse(raw) as OrganizePlan;
+
+      // Validate: known ids only, each document once, drop empty folders.
+      const valid = new Set(ready.map((d) => d.id));
+      const knownFolders = new Set(folders.map((f) => f.id));
+      const seen = new Set<string>();
+      const plan: OrganizePlan = {
+        folders: (parsed.folders ?? [])
+          .map((f) => ({
+            name: String(f.name ?? '').trim().slice(0, 40) || 'Folder',
+            existingFolderId: f.existingFolderId && knownFolders.has(f.existingFolderId) ? f.existingFolderId : null,
+            docIds: (f.docIds ?? []).filter((id) => valid.has(id) && !seen.has(id) && (seen.add(id), true)),
+          }))
+          .filter((f) => f.docIds.length > 0),
+      };
+      if (!plan.folders.length) throw new Error('Pagewise couldn’t find a good way to group these documents. Try an instruction.');
+      return plan;
+    },
+    [docs, folders],
+  );
+
+  const applyOrganization = useCallback(
+    async (plan: OrganizePlan) => {
+      if (!uid) return;
+      const batch = writeBatch(db());
+      for (const f of plan.folders) {
+        let folderId = f.existingFolderId ?? folders.find((x) => x.name.toLowerCase() === f.name.toLowerCase())?.id;
+        if (!folderId) {
+          const ref = doc(collection(db(), 'users', uid, 'folders'));
+          batch.set(ref, { name: f.name, createdAt: serverTimestamp() });
+          folderId = ref.id;
+        }
+        f.docIds.forEach((id) => batch.update(doc(db(), 'users', uid, 'documents', id), { folderId }));
+      }
+      await batch.commit();
+    },
+    [uid, folders],
+  );
+
   const value = useMemo(
     () => ({
       docs,
@@ -364,8 +529,15 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
       send,
       clearChat,
       markAllRead,
+      folders,
+      createFolder,
+      renameFolder,
+      deleteFolder,
+      moveDoc,
+      suggestOrganization,
+      applyOrganization,
     }),
-    [docs, loading, notices, stats, streaming, typing, getDoc, hasLocalFile, addDoc, retryAnalysis, removeDoc, send, clearChat, markAllRead],
+    [docs, loading, notices, stats, streaming, typing, getDoc, hasLocalFile, addDoc, retryAnalysis, removeDoc, send, clearChat, markAllRead, folders, createFolder, renameFolder, deleteFolder, moveDoc, suggestOrganization, applyOrganization],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
