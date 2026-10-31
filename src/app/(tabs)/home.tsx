@@ -20,7 +20,7 @@ export default function Home() {
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? docs.filter((d) => d.title.toLowerCase().includes(q)) : docs.slice(0, 3);
+    return q ? docs.filter((d) => d.title.toLowerCase().includes(q)) : docs.slice(0, 5);
   }, [query, docs]);
 
   return (
@@ -108,7 +108,7 @@ export default function Home() {
             style={({ pressed }) => [styles.upload, pressed && { opacity: 0.7 }]}
           >
             <GlossyIcon tone="ink" size={46} shape="circle">
-              {(c) => <PlusIcon size={21} color={c} strokeWidth={2.2} />}
+              {(c) => <PlusIcon size={20} color={c} strokeWidth={2.2} />}
             </GlossyIcon>
             <View>
               <Text style={styles.uploadTitle}>Upload a new document</Text>
@@ -177,9 +177,11 @@ const styles = StyleSheet.create({
   upload: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    padding: 18,
-    borderRadius: 26,
+    gap: 14,
+    paddingVertical: 12,
+    paddingLeft: 12,
+    paddingRight: 14,
+    borderRadius: 20,
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: 'rgba(38,37,31,0.22)',
