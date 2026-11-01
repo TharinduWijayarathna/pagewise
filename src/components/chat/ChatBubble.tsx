@@ -59,7 +59,7 @@ export function UserBubble({ text }: { text: string }) {
 }
 
 /** Answer from Gemini. `streaming` shows a live, still-growing answer. */
-export function AiBubble({ text, streaming }: { text: string; streaming?: boolean }) {
+export function AiBubble({ text, streaming, onPage }: { text: string; streaming?: boolean; onPage?: (page: number) => void }) {
   return (
     <View style={styles.ai}>
       <View style={styles.aiHead}>
@@ -69,7 +69,7 @@ export function AiBubble({ text, streaming }: { text: string; streaming?: boolea
         <Text style={styles.aiName}>Pagewise</Text>
         {streaming && !!text && <Text style={styles.live}>writing…</Text>}
       </View>
-      {text ? <RichText text={text} /> : <TypingDots />}
+      {text ? <RichText text={text} onPage={onPage} /> : <TypingDots />}
       {!streaming && !!text && (
         <View style={styles.actions}>
           <CopyButton text={text} />

@@ -334,3 +334,53 @@ export const MoreIcon = (p: P) => (
     <Circle cx="18" cy="12" r="1.3" />
   </Base>
 );
+
+export const CalendarIcon = (p: P) => (
+  <Base {...p}>
+    <Rect x="3.5" y="4.5" width="17" height="16" rx="3" />
+    <Path d="M8 2.5v4M16 2.5v4M3.5 9.5h17" />
+  </Base>
+);
+
+export const SpeakerIcon = (p: P) => (
+  <Base {...p}>
+    <Path d="M11 5 6.5 8.5H3.5v7h3L11 19z" />
+    <Path d="M15.5 9a4 4 0 0 1 0 6M18.5 6a8 8 0 0 1 0 12" />
+  </Base>
+);
+
+export const StopIcon = (p: P) => (
+  <Base {...p}>
+    <Rect x="6" y="6" width="12" height="12" rx="2.5" />
+  </Base>
+);
+
+export const CardsIcon = (p: P) => (
+  <Base {...p}>
+    <Rect x="3" y="7" width="14" height="13" rx="2.5" />
+    <Path d="M7 4h11.5A2.5 2.5 0 0 1 21 6.5V16" />
+  </Base>
+);
+
+export const QuizIcon = (p: P) => (
+  <Base {...p}>
+    <Circle cx="12" cy="12" r="9.5" />
+    <Path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.4-2.7 4" />
+    <Path d="M12 17.5h.01" />
+  </Base>
+);
+
+export const AlertIcon = (p: P) => (
+  <Base {...p}>
+    <Path d="M10.3 3.9 2.4 17.6A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-2.9L13.7 3.9a2 2 0 0 0-3.4 0z" />
+    <Path d="M12 9.5v4M12 17h.01" />
+  </Base>
+);
+
+export const ImageIcon = (p: P) => (
+  <Base {...p}>
+    <Rect x="3" y="3.5" width="18" height="17" rx="3" />
+    <Circle cx="9" cy="9.5" r="1.8" />
+    <Path d="m21 15.5-4.5-4.5L6 20.5" />
+  </Base>
+);

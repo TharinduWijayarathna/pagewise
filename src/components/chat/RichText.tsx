@@ -35,8 +35,11 @@ function parse(src: string): Block[] {
 const PAGE_REF = /(\((?:p|pp|page|pages)\.?\s*[\d\s,–-]+\))/gi;
 const IS_PAGE_REF = /^\((?:p|pp|page|pages)\.?\s*[\d\s,–-]+\)$/i;
 
-/** Inline: **bold** and page-reference chips. */
-function Inline({ text, style }: { text: string; style?: object }) {
+/** First page number in a ref like "(pp. 4–5)" → 4. */
+const firstPage = (ref: string) => Number(ref.match(/\d+/)?.[0]) || undefined;
+
+/** Inline: **bold** and page-reference chips (tappable when `onPage` is given). */
+function Inline({ text, style, onPage }: { text: string; style?: object; onPage?: (page: number) => void }) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
   return (
     <Text style={[styles.body, style]}>
@@ -54,7 +57,14 @@ function Inline({ text, style }: { text: string; style?: object }) {
           .filter(Boolean)
           .map((seg, j) =>
             IS_PAGE_REF.test(seg) ? (
-              <Text key={`${i}-${j}`} style={styles.pageRef}>
+              <Text
+                key={`${i}-${j}`}
+                style={styles.pageRef}
+                onPress={onPage && firstPage(seg) ? () => onPage(firstPage(seg)!) : undefined}
+                suppressHighlighting={false}
+                accessibilityRole={onPage ? 'link' : undefined}
+                accessibilityHint={onPage ? 'Opens this page of the PDF' : undefined}
+              >
                 {' '}
                 {seg.replace(/[()]/g, '').replace(/^pages?\s*/i, 'p. ').trim().replace(/\s+/g, '\u00A0')}{' '}
               </Text>
@@ -67,7 +77,7 @@ function Inline({ text, style }: { text: string; style?: object }) {
   );
 }
 
-export function RichText({ text, color }: { text: string; color?: string }) {
+export function RichText({ text, color, onPage }: { text: string; color?: string; onPage?: (page: number) => void }) {
   const blocks = parse(text);
   const tint = color ? { color } : undefined;
   return (
@@ -87,7 +97,7 @@ export function RichText({ text, color }: { text: string; color?: string }) {
             return (
               <View key={i} style={[styles.row, !first && { marginTop: 6 }]}>
                 <View style={styles.dot} />
-                <Inline text={b.text} style={[{ flex: 1 }, tint ?? {}]} />
+                <Inline text={b.text} style={[{ flex: 1 }, tint ?? {}]} onPage={onPage} />
               </View>
             );
           case 'step':
@@ -96,13 +106,13 @@ export function RichText({ text, color }: { text: string; color?: string }) {
                 <View style={styles.num}>
                   <Text style={styles.numText}>{b.n}</Text>
                 </View>
-                <Inline text={b.text} style={[{ flex: 1 }, tint ?? {}]} />
+                <Inline text={b.text} style={[{ flex: 1 }, tint ?? {}]} onPage={onPage} />
               </View>
             );
           default:
             return (
               <View key={i} style={!first && { marginTop: 4 }}>
-                <Inline text={b.text} style={tint} />
+                <Inline text={b.text} style={tint} onPage={onPage} />
               </View>
             );
         }

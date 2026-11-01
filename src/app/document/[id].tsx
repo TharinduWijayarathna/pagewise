@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
 import {
+  Alert,
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -14,6 +16,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Background } from '@/components/ui/Background';
 import { DocumentOverview } from '@/components/document/DocumentOverview';
+import { AdminPanel } from '@/components/document/AdminPanel';
+import { StudyPanel } from '@/components/document/StudyPanel';
+import { openPage } from '@/components/document/PageChip';
+import type { DocMode } from '@/types/document';
 import {
   AnalyzeIcon,
   FileTextIcon,
@@ -31,15 +37,32 @@ import { GlossyIcon } from '@/components/ui/GlossyIcon';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { colors, fonts } from '@/constants/theme';
 
-const QUICK = [
-  { label: 'Summaries', Icon: SummaryIcon, prompt: 'Summarize this document in a few bullet points.' },
-  { label: 'Analyze', Icon: AnalyzeIcon, prompt: 'Analyze the most important numbers, findings or risks in this document.' },
-  { label: 'Update', Icon: UpdateIcon, prompt: 'What are the latest changes, dates or action items mentioned in this document?' },
-];
+type Quick = { label: string; Icon: typeof SummaryIcon; prompt: string };
+
+/** Quick questions above the composer, tuned to the kind of document. */
+const QUICK: Record<DocMode, Quick[]> = {
+  general: [
+    { label: 'Summaries', Icon: SummaryIcon, prompt: 'Summarize this document in a few bullet points.' },
+    { label: 'Analyze', Icon: AnalyzeIcon, prompt: 'Analyze the most important numbers, findings or risks in this document.' },
+    { label: 'Update', Icon: UpdateIcon, prompt: 'What are the latest changes, dates or action items mentioned in this document?' },
+  ],
+  admin: [
+    { label: 'What do I owe?', Icon: AnalyzeIcon, prompt: 'What do I have to pay or do, by when? List each obligation with its date and amount.' },
+    { label: 'Can I cancel?', Icon: UpdateIcon, prompt: 'How can I cancel, end or get out of this, how much notice is needed, and what would it cost?' },
+    { label: 'Plain English', Icon: SummaryIcon, prompt: 'Explain this document in plain English, as if to a friend. What should I watch out for?' },
+  ],
+  study: [
+    { label: 'Explain simply', Icon: SummaryIcon, prompt: 'Explain the main ideas simply, as if teaching a beginner, with one example each.' },
+    { label: 'Key terms', Icon: AnalyzeIcon, prompt: 'List the key terms and definitions I need to know from this document.' },
+    { label: 'Exam focus', Icon: UpdateIcon, prompt: 'What are the most likely exam questions on this material? Give short model answers.' },
+  ],
+};
+
+const MODE_LABEL: Record<DocMode, string> = { admin: 'Paperwork', study: 'Study material', general: 'General' };
 
 export default function DocumentChat() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getDoc, typing, streaming, send, clearChat, removeDoc, retryAnalysis, hasLocalFile, folders } = useLibrary();
+  const { getDoc, typing, streaming, send, clearChat, removeDoc, retryAnalysis, hasLocalFile, folders, setMode } = useLibrary();
   const doc = getDoc(id);
   const msgs = useMessages(id);
   const busy = !!(id && typing[id]);
@@ -68,13 +91,26 @@ export default function DocumentChat() {
   };
 
   const folderName = folders.find((f) => f.id === doc.folderId)?.name;
+  // Small delay: on iOS a second action sheet can't open while the first is still closing.
+  const changeMode = () =>
+    setTimeout(() => showActions('What kind of document is this?', (['admin', 'study', 'general'] as DocMode[]).map((m) => ({
+      label: `${MODE_LABEL[m]}${m === doc.mode ? ' ✓' : ''}`,
+      onPress: () =>
+        m !== doc.mode &&
+        setMode(doc.id, m).catch((err) => Alert.alert('Couldn’t switch', (err as Error).message)),
+    }))), Platform.OS === 'ios' ? 350 : 0);
   const openMenu = () =>
     showActions(doc.title, [
+      ...(onDevice ? [{ label: 'View PDF', onPress: () => openPage(doc.id, 1) }] : []),
+      ...(doc.status === 'ready'
+        ? [{ label: 'Share as image', onPress: () => router.push({ pathname: '/share-card/[id]', params: { id: doc.id } }) }]
+        : []),
       {
         label: folderName ? `Move to folder (in ${folderName})` : 'Move to folder',
         onPress: () => router.push({ pathname: '/move', params: { docId: doc.id } }),
       },
-      { label: 'Share summary', onPress: () => Share.share({ message: `${doc.title}${doc.summary ? `\n\n${doc.summary}` : ''}\n\nShared from Pagewise` }) },
+      ...(doc.status === 'ready' ? [{ label: `Document type: ${MODE_LABEL[doc.mode]}`, onPress: changeMode }] : []),
+      { label: 'Share summary as text', onPress: () => Share.share({ message: `${doc.title}${doc.summary ? `\n\n${doc.summary}` : ''}\n\nShared from Pagewise` }) },
       { label: 'Clear conversation', onPress: () => clearChat(doc.id) },
       {
         label: 'Delete document',
@@ -119,6 +155,9 @@ export default function DocumentChat() {
           >
             <DocumentOverview doc={doc} onRetry={onDevice ? () => retryAnalysis(doc.id) : undefined} />
 
+            {doc.status === 'ready' && doc.mode === 'admin' && <AdminPanel doc={doc} onAsk={(p) => submit(p)} />}
+            {doc.status === 'ready' && doc.mode === 'study' && <StudyPanel doc={doc} canUseAi={onDevice} />}
+
             {!onDevice && (
               <View style={styles.notice}>
                 <Text style={styles.noticeText}>
@@ -129,13 +168,23 @@ export default function DocumentChat() {
             )}
 
             {msgs.map((m) =>
-              m.role === 'user' ? <UserBubble key={m.id} text={m.text} /> : <AiBubble key={m.id} text={m.text} />,
+              m.role === 'user' ? (
+                <UserBubble key={m.id} text={m.text} />
+              ) : (
+                <AiBubble key={m.id} text={m.text} onPage={onDevice ? (p) => openPage(doc.id, p) : undefined} />
+              ),
             )}
             {busy && <AiBubble text={partial ?? ''} streaming />}
           </ScrollView>
 
-          <View style={styles.chips}>
-            {QUICK.map(({ label, Icon, prompt }) => (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            style={styles.chipScroll}
+            contentContainerStyle={styles.chips}
+          >
+            {QUICK[doc.mode].map(({ label, Icon, prompt }) => (
               <Pressable
                 key={label}
                 onPress={() => submit(prompt)}
@@ -147,7 +196,7 @@ export default function DocumentChat() {
                 <Text style={styles.chipText}>{label}</Text>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
 
           <View style={styles.composer}>
             <Pressable
@@ -200,6 +249,7 @@ const styles = StyleSheet.create({
   pagesRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
   pages: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted },
   scroll: { paddingHorizontal: 20, paddingBottom: 16 },
+  chipScroll: { flexGrow: 0 },
   chips: { flexDirection: 'row', gap: 10, paddingHorizontal: 22, paddingTop: 8, paddingBottom: 14 },
   chip: {
     flexDirection: 'row',

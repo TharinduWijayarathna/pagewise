@@ -63,6 +63,57 @@
             "com.google.android.googlequicksearchbox"
           ]
         }
+      ],
+      "react-native-blob-util",
+      "expo-sharing",
+      "@bacons/apple-targets",
+      [
+        "expo-share-intent",
+        {
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsFileWithMaxCount": 1
+          },
+          "iosShareExtensionName": "Ask Pagewise",
+          "iosAppGroupIdentifier": "group.com.pagewise.app",
+          "androidIntentFilters": [
+            "application/pdf"
+          ]
+        }
+      ],
+      [
+        "react-native-document-scanner-plugin",
+        {
+          "cameraPermission": "Pagewise uses the camera to scan paper documents into PDFs you can ask questions about."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Pagewise adds deadlines from your documents to your calendar when you ask it to."
+        }
+      ],
+      [
+        "expo-notifications",
+        {}
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Upcoming",
+              "label": "Pagewise: Coming up",
+              "description": "Deadlines from your documents and flashcards to review.",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000,
+              "widgetCategory": "home_screen|keyguard"
+            }
+          ]
+        }
       ]
     ],
     "scheme": "pagewise",

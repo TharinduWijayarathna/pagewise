@@ -18,6 +18,7 @@ import { TabScreen, tabText } from '@/components/layout/TabScreen';
 import { GlassCard, Row } from '@/components/ui';
 import { useAuth } from '@/state/auth';
 import { useLibrary } from '@/state/library';
+import { useReminders } from '@/hooks/useReminders';
 import { colors, fonts, gradients } from '@/constants/theme';
 
 const GOLD = ['#F6D77A', '#C9961C'] as const;
@@ -28,7 +29,7 @@ const ic = (I: typeof UserIcon) => (color: string) => <I size={18} color={color}
 export default function Profile() {
   const { user, signOut } = useAuth();
   const { docs } = useLibrary();
-  const [push, setPush] = useState(true);
+  const reminders = useReminders();
   const [digest, setDigest] = useState(false);
   if (!user) return null;
 
@@ -107,7 +108,7 @@ export default function Profile() {
 
       <Text style={tabText.section}>Preferences</Text>
       <GlassCard style={styles.group}>
-        <Row icon={ic(BellIcon)} fill={FOLDER_COLORS.orange.top} label="Push notifications" right={<Switch value={push} onValueChange={setPush} {...switchProps} />} />
+        <Row icon={ic(BellIcon)} fill={FOLDER_COLORS.orange.top} label="Reminders" value={reminders.enabled ? undefined : 'Deadlines & study'} right={<Switch value={!!reminders.enabled} onValueChange={reminders.set} {...switchProps} />} />
         <Row icon={ic(MailIcon)} fill={FOLDER_COLORS.blue.top} label="Weekly email digest" right={<Switch value={digest} onValueChange={setDigest} {...switchProps} />} last />
       </GlassCard>
 
@@ -115,7 +116,7 @@ export default function Profile() {
       <GlassCard style={styles.group}>
         <Row icon={ic(UserIcon)} fill={FOLDER_COLORS.teal.top} label="Edit profile" right={chevron} onPress={() => router.push('/edit-profile')} />
         <Row icon={ic(CrownIcon)} fill={GOLD} label="Subscription" value={pro ? 'Pro' : 'Free'} right={chevron} onPress={() => router.push('/upgrade')} />
-        <Row icon={ic(ShieldIcon)} fill={FOLDER_COLORS.slate.top} label="Privacy & security" right={chevron} onPress={() => Alert.alert('Privacy & security', 'Your PDFs are stored only on this device. To answer questions, the document and your question are sent to Google Gemini through Firebase. Your account data is stored securely in Firebase.')} />
+        <Row icon={ic(ShieldIcon)} fill={FOLDER_COLORS.slate.top} label="Privacy & security" right={chevron} onPress={() => Alert.alert('Privacy & security', 'Your PDFs are stored only on this phone, never in Pagewise’s cloud. To read a document or answer a question, it is sent securely to Google Gemini through Firebase. Reminders and widgets are created on the device. Your account, chats and extracted dates are stored in Firebase so they sync to your other devices.')} />
         <Row icon={ic(HelpIcon)} fill={FOLDER_COLORS.purple.top} label="Help & support" right={chevron} onPress={() => Alert.alert('Help & support', 'Email us at support@pagewise.app')} last />
       </GlassCard>
 

@@ -1,8 +1,9 @@
 import { ActionSheetIOS, Alert, Platform } from 'react-native';
+import { presentSheet } from '@/components/ui/ActionSheetHost';
 
 export type Action = { label: string; onPress: () => void; destructive?: boolean };
 
-/** Native action sheet on iOS, a simple dialog on Android. */
+/** Native action sheet on iOS, a bottom sheet on Android (see ActionSheetHost). */
 export function showActions(title: string, actions: Action[]) {
   if (Platform.OS === 'ios') {
     const destructive = actions.findIndex((a) => a.destructive);
@@ -17,6 +18,8 @@ export function showActions(title: string, actions: Action[]) {
     );
     return;
   }
+  if (presentSheet({ title, actions })) return;
+  // Fallback if the host isn't mounted (Android dialogs show at most 3 buttons).
   Alert.alert(title, undefined, [
     ...actions.map((a) => ({ text: a.label, style: a.destructive ? ('destructive' as const) : undefined, onPress: a.onPress })),
     { text: 'Cancel', style: 'cancel' as const },
