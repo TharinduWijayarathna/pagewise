@@ -14,6 +14,13 @@ How Pagewise is put together, where things live, and how data flows.
 | Security | Firebase App Check (Play Integrity / App Attest) |
 | Files | `expo-file-system` (PDFs are kept on the device), `expo-document-picker` |
 | Voice input | `expo-speech-recognition` |
+| Share to app | `expo-share-intent` (iOS share extension "Ask Pagewise", Android `SEND application/pdf`) |
+| Scanning | `react-native-document-scanner-plugin` → `expo-print` joins pages into a PDF |
+| PDF viewer | `react-native-pdf` (+ `react-native-blob-util`) |
+| Reminders & calendar | `expo-notifications` (local only), `expo-calendar` (system "new event" sheet) |
+| Audio briefing | `expo-speech` |
+| Share card | `react-native-view-shot` + `expo-sharing` |
+| Widgets | iOS: `@bacons/apple-targets` (SwiftUI in `targets/widget`); Android: `react-native-android-widget` |
 | Keyboard | `react-native-keyboard-controller` |
 | UI | `expo-linear-gradient`, `react-native-svg`, DM Sans font |
 
@@ -76,6 +83,12 @@ users/{uid}/documents/{docId}
   summary, highlights[]                  ← written by Gemini after upload
   lastQuestion, lastAnswer, lastAt, questionCount
   folderId (null = no folder)
+  source ('upload' | 'scan' | 'share')
+  mode ('admin' | 'study' | 'general')    ← chosen by Gemini on upload; user can change it
+  keyDates[] { label, date 'YYYY-MM-DD', kind, page? }   ← admin only
+  amounts[]  { label, value, page? }                      ← admin only
+  risks[]    { text, level 'high'|'medium'|'low', page? } ← admin only
+  cards[]    { id, q, a, page?, box 1-5, due (ms) }       ← study, made on request
 
 users/{uid}/documents/{docId}/messages/{messageId}
   role ('user' | 'ai'), text, createdAt
@@ -118,6 +131,35 @@ shown for review, and written in one batch by `library.applyOrganization()` only
 
 Gemini's style (short answer first, bullets, **bold**, page refs like `(p. 4)`) is set by the
 system prompt in `src/lib/firebase.ts`, and rendered by `components/chat/RichText.tsx`.
+
+**Modes**: the upload analysis also classifies the document and, for paperwork, extracts dates, amounts and
+risky clauses in the same Gemini call. All AI JSON goes through `lib/aiJson.ts`, which drops malformed items.
+- *Admin* → `components/document/AdminPanel.tsx` (calendar, reminders, "tap to explain" clauses).
+- *Study* → `components/document/StudyPanel.tsx`, `app/study/[id].tsx` (Leitner boxes: due again after 1/2/4/8/16
+  days, "Again" = 10 min) and `app/quiz/[id].tsx` (6 fresh questions each time, not saved).
+
+**Share → Pagewise**: the share extension opens `pagewise://dataUrl=…`; `app/+native-intent.tsx` sends that to a
+real route, and `useSharedPdf` in `app/_layout.tsx` opens `/upload` with the file (after sign-in if needed),
+which starts reading at once.
+
+**Reminders** (`lib/reminders.ts`): off until the user turns them on (document screen or Profile). Every time the
+library changes, `syncReminders` reconciles local notifications whose id starts with `pw-`: 9:00 three days before
+and on the day for each key date, plus one "flashcards ready" nudge. Capped at 50 (iOS allows 64).
+
+**Widgets** (`lib/widgets.tsx`): the app writes a small JSON snapshot (`widgets/snapshot.ts`): to the App Group
+`group.com.pagewise.app` on iOS, to `Documents/widget.json` on Android. Dates are stored raw so the widgets
+recompute "In 3 days" themselves (iOS: timeline entries at each midnight; Android: 30-minute refresh via the
+headless task registered in `index.js`).
+
+## Native setup notes
+
+- **iOS Simulator and Android need no Apple account.** The `ios.appleTeamId` warning during prebuild can be
+  ignored for simulator builds.
+- **Real iPhones / TestFlight / App Store need a paid Apple Developer account** (Sign in with Apple and App Groups
+  aren't available to free teams). Then set `ios.appleTeamId` in `app.json` and enable the App Group
+  `group.com.pagewise.app` for `com.pagewise.app`, `com.pagewise.app.AskPagewise` and the widget's bundle id.
+- Scanning needs a real camera; in the iOS Simulator the Scan button explains this instead of opening.
+- After changing `app.json` or `targets/`, run `npm run prebuild`.
 
 ## Limits & security
 

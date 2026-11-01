@@ -6,7 +6,10 @@ import { Background } from '@/components/ui/Background';
 import { GlossyIcon } from '@/components/ui/GlossyIcon';
 import { DocumentCard } from '@/components/document/DocumentCard';
 import { FolderChips } from '@/components/document/FolderChips';
-import { BellIcon, CloseIcon, PlusIcon, SearchIcon } from '@/components/ui/Icons';
+import { BellIcon, CalendarIcon, CameraIcon, CardsIcon, CloseIcon, PlusIcon, SearchIcon } from '@/components/ui/Icons';
+import { PrivacyNote } from '@/components/document/PrivacyNote';
+import { canScan, explainNoCamera } from '@/lib/scan';
+import { dueCards, dueLabel, upcomingDates } from '@/utils/dates';
 import { CircleButton } from '@/components/ui';
 import { useLibrary } from '@/state/library';
 import { colors, fonts } from '@/constants/theme';
@@ -17,6 +20,15 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const unread = notices.some((n) => !n.read);
+  const upcoming = useMemo(() => upcomingDates(docs, 60).slice(0, 3), [docs]);
+  const due = useMemo(() => {
+    const cards = dueCards(docs);
+    // Open the document with the most cards waiting.
+    const counts = new Map<string, number>();
+    cards.forEach((c) => counts.set(c.docId, (counts.get(c.docId) ?? 0) + 1));
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+    return { count: cards.length, docId: top?.[0] };
+  }, [docs]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -80,6 +92,50 @@ export default function Home() {
             </View>
           )}
 
+          {/* coming up: deadlines from paperwork + flashcards due */}
+          {!query && (upcoming.length > 0 || due.count > 0) && (
+            <>
+              <Text style={[styles.section, { marginTop: 30, marginBottom: 14 }]}>Coming up</Text>
+              <View style={styles.upcoming}>
+                {upcoming.map((k, i) => (
+                  <Pressable
+                    key={`${k.docId}${k.date}${k.label}`}
+                    onPress={() => router.push({ pathname: '/document/[id]', params: { id: k.docId } })}
+                    style={({ pressed }) => [styles.upRow, i > 0 && styles.upDivider, pressed && { opacity: 0.6 }]}
+                  >
+                    <GlossyIcon tone={k.days <= 3 ? 'rose' : 'pearl'} size={34} flat>
+                      {(c) => <CalendarIcon size={16} color={c} strokeWidth={1.8} />}
+                    </GlossyIcon>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.upTitle} numberOfLines={1}>
+                        {k.label}
+                      </Text>
+                      <Text style={styles.upSub} numberOfLines={1}>
+                        {k.docTitle}
+                      </Text>
+                    </View>
+                    <Text style={[styles.upWhen, k.days <= 3 && { color: '#C8503F' }]}>{dueLabel(k.date)}</Text>
+                  </Pressable>
+                ))}
+                {due.count > 0 && due.docId && (
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/study/[id]', params: { id: due.docId! } })}
+                    style={({ pressed }) => [styles.upRow, upcoming.length > 0 && styles.upDivider, pressed && { opacity: 0.6 }]}
+                  >
+                    <GlossyIcon tone="green" size={34} flat>
+                      {(c) => <CardsIcon size={16} color={c} strokeWidth={1.8} />}
+                    </GlossyIcon>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.upTitle}>{plural(due.count, 'flashcard')} to review</Text>
+                      <Text style={styles.upSub}>A few minutes keeps it fresh</Text>
+                    </View>
+                    <Text style={[styles.upWhen, { color: colors.greenDark }]}>Review</Text>
+                  </Pressable>
+                )}
+              </View>
+            </>
+          )}
+
           {/* recent */}
           <View style={styles.sectionRow}>
             <Text style={styles.section}>{query ? 'Results' : 'Recent'}</Text>
@@ -102,19 +158,31 @@ export default function Home() {
             </View>
           )}
 
-          {/* upload */}
-          <Pressable
-            onPress={() => router.push('/upload')}
-            style={({ pressed }) => [styles.upload, pressed && { opacity: 0.7 }]}
-          >
-            <GlossyIcon tone="ink" size={46} shape="circle">
-              {(c) => <PlusIcon size={20} color={c} strokeWidth={2.2} />}
-            </GlossyIcon>
-            <View>
-              <Text style={styles.uploadTitle}>Upload a new document</Text>
-              <Text style={styles.uploadSub}>PDF, up to 14 MB</Text>
-            </View>
-          </Pressable>
+          {/* upload / scan */}
+          <View style={styles.upload}>
+            <Pressable
+              onPress={() => router.push('/upload')}
+              style={({ pressed }) => [styles.uploadMain, pressed && { opacity: 0.7 }]}
+            >
+              <GlossyIcon tone="ink" size={46} shape="circle">
+                {(c) => <PlusIcon size={20} color={c} strokeWidth={2.2} />}
+              </GlossyIcon>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.uploadTitle}>Add a document</Text>
+                <Text style={styles.uploadSub}>PDF up to 14 MB, or Share → Pagewise</Text>
+              </View>
+            </Pressable>
+            <Pressable
+              onPress={() => (canScan() ? router.push({ pathname: '/upload', params: { scan: '1' } }) : explainNoCamera())}
+              hitSlop={6}
+              accessibilityLabel="Scan a paper document"
+              style={({ pressed }) => [styles.scanBtn, pressed && { opacity: 0.7 }]}
+            >
+              <CameraIcon size={19} color={colors.ink} strokeWidth={1.7} />
+              <Text style={styles.scanText}>Scan</Text>
+            </Pressable>
+          </View>
+          <PrivacyNote compact style={{ marginTop: 14, justifyContent: 'center' }} />
         </ScrollView>
       </SafeAreaView>
     </Background>
@@ -174,6 +242,31 @@ const styles = StyleSheet.create({
   emptyTitle: { fontFamily: fonts.semibold, fontSize: 16, color: colors.text },
   emptyText: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted, marginTop: 6 },
   empty: { fontFamily: fonts.regular, color: colors.muted, textAlign: 'center', marginVertical: 24 },
+  upcoming: {
+    borderRadius: 22,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingHorizontal: 14,
+  },
+  upRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  upDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(38,37,31,0.12)' },
+  upTitle: { fontFamily: fonts.medium, fontSize: 15, color: colors.text },
+  upSub: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.muted, marginTop: 1 },
+  upWhen: { fontFamily: fonts.semibold, fontSize: 13, color: colors.muted },
+  uploadMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  scanBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    width: 58,
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.9)',
+  },
+  scanText: { fontFamily: fonts.medium, fontSize: 11.5, color: colors.ink },
   upload: {
     flexDirection: 'row',
     alignItems: 'center',

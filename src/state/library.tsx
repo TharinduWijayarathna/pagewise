@@ -17,9 +17,11 @@ import {
 } from '@react-native-firebase/firestore';
 import { Directory, File, Paths } from 'expo-file-system';
 import { MAX_PDF_BYTES, PLAN_LIMITS } from '@/constants/limits';
-import type { Doc, Folder, OrganizePlan } from '@/types/document';
+import type { Doc, DocMode, DocSource, Flashcard, Folder, OrganizePlan, QuizQuestion } from '@/types/document';
+import { parseJson, toAmounts, toCards, toKeyDates, toMode, toQuiz, toRisks } from '@/lib/aiJson';
 import { FOLDER_COLOR_KEYS, isFolderColor, nextFolderColor, type FolderColorKey } from '@/constants/folderColors';
 import { dayKey } from '@/utils/format';
+import { daysUntil } from '@/utils/dates';
 import { db, getModel } from '@/lib/firebase';
 import { useAuth } from '@/state/auth';
 
@@ -37,7 +39,9 @@ type LibraryCtx = {
   typing: Record<string, boolean>;
   getDoc: (id?: string) => Doc | undefined;
   hasLocalFile: (id: string) => boolean;
-  addDoc: (file: { uri: string; name: string; size?: number }) => Promise<string>;
+  addDoc: (file: { uri: string; name: string; size?: number }, source?: DocSource) => Promise<string>;
+  /** file:// URI of the PDF on this device (for the page viewer). */
+  pdfUri: (id: string) => string;
   retryAnalysis: (id: string) => Promise<void>;
   removeDoc: (id: string) => Promise<void>;
   send: (docId: string, text: string, history: Msg[]) => Promise<void>;
@@ -53,7 +57,29 @@ type LibraryCtx = {
   /** Ask Gemini to propose folders for the library (optionally following an instruction). */
   suggestOrganization: (instruction?: string) => Promise<OrganizePlan>;
   applyOrganization: (plan: OrganizePlan) => Promise<void>;
+  /* modes */
+  /** Switch a document between admin / study / general (re-extracts admin facts if needed). */
+  setMode: (docId: string, mode: DocMode) => Promise<void>;
+  /** Study: (re)generate flashcards for a document. */
+  generateCards: (docId: string) => Promise<void>;
+  /** Study: record how well a card was remembered and reschedule it. */
+  reviewCard: (docId: string, cardId: string, grade: Grade) => Promise<void>;
+  /** Study: a fresh multiple-choice quiz (not saved). */
+  makeQuiz: (docId: string) => Promise<QuizQuestion[]>;
 };
+
+export type Grade = 'again' | 'good' | 'easy';
+
+/** Leitner boxes 1–5 → days until the card comes back. */
+const BOX_DAYS = [1, 2, 4, 8, 16];
+
+export function rescheduleCard(card: Flashcard, grade: Grade, now = Date.now()): Flashcard {
+  if (grade === 'again') return { ...card, box: 1, due: now + 10 * 60_000 };
+  const box = Math.min(5, card.box + (grade === 'easy' ? 2 : 1));
+  const due = new Date(now + BOX_DAYS[box - 1] * 86_400_000);
+  due.setHours(4, 0, 0, 0); // due from early morning, so it's ready when the day starts
+  return { ...card, box, due: due.getTime() };
+}
 
 const Ctx = createContext<LibraryCtx | null>(null);
 
@@ -78,23 +104,81 @@ const textPart = (text: string) => ({ type: 'text' as const, text });
 
 /* ---------- Gemini calls ---------- */
 
+const FACTS_SHAPE = `"keyDates": [{"label": string (what happens, under 8 words), "date": "YYYY-MM-DD", "kind": "deadline" | "renewal" | "payment" | "event" | "other", "page": number}],
+"amounts": [{"label": string (under 6 words), "value": string (with currency/unit, e.g. "$1,250/month"), "page": number}],
+"risks": [{"text": string (one sentence, plain language: what it means for the reader), "level": "high" | "medium" | "low", "page": number}]`;
+
+const FACTS_RULES = (today: string) => `Today is ${today}. Resolve relative dates ("within 30 days of signing") only when the anchor date is in the document; otherwise leave them out.
+keyDates: every concrete date the reader must act on or know about (due dates, notice periods, renewals, expiries, appointments). Max 12.
+amounts: the money figures that matter most (rent, fees, totals, penalties, deposits). Max 8.
+risks: clauses that could cost the reader money, rights or time (auto-renewal, penalties, liability, early-termination fees, unusual terms). Max 6. Empty if none.`;
+
 async function analyzePdf(id: string) {
   const model = await getModel('analyze');
   const res = await model.generateContent([
     pdfPart(await readPdfBase64(id)),
     textPart(
       `Read this PDF and reply with JSON only, in this shape:
-{"title": string (short, human-friendly), "pages": number (total page count), "summary": string (2-3 sentences), "highlights": string[] (3-5 key facts, each under 12 words)}`,
+{"title": string (short, human-friendly), "pages": number (total page count), "summary": string (2-3 sentences), "highlights": string[] (3-5 key facts, each under 12 words),
+"mode": "admin" | "study" | "general",
+${FACTS_SHAPE}}
+
+mode: "admin" for contracts, leases, bills, invoices, statements, insurance, policies, official letters, forms and other paperwork the reader must act on; "study" for lecture notes, slides, textbooks, papers, manuals or anything someone would learn from; "general" otherwise.
+Only when mode is "admin", fill keyDates, amounts and risks; otherwise return them as empty arrays.
+${FACTS_RULES(dayKey())}`,
     ),
   ]);
-  const raw = res.response.text().replace(/^```(?:json)?|```$/g, '').trim();
-  const json = JSON.parse(raw) as { title?: string; pages?: number; summary?: string; highlights?: string[] };
+  const json = parseJson<Record<string, unknown>>(res.response.text());
+  const mode = toMode(json.mode);
+  const pages = Number(json.pages);
   return {
-    title: json.title?.slice(0, 120),
-    pages: Number.isFinite(json.pages) ? Math.max(1, Math.round(json.pages!)) : undefined,
-    summary: json.summary ?? '',
-    highlights: Array.isArray(json.highlights) ? json.highlights.slice(0, 5) : [],
+    title: typeof json.title === 'string' ? json.title.slice(0, 120) : undefined,
+    pages: Number.isFinite(pages) && pages > 0 ? Math.round(pages) : undefined,
+    summary: typeof json.summary === 'string' ? json.summary : '',
+    highlights: Array.isArray(json.highlights) ? json.highlights.filter((h) => typeof h === 'string').slice(0, 5) : [],
+    mode,
+    keyDates: mode === 'admin' ? toKeyDates(json.keyDates) : [],
+    amounts: mode === 'admin' ? toAmounts(json.amounts) : [],
+    risks: mode === 'admin' ? toRisks(json.risks) : [],
   };
+}
+
+/** Admin facts only (used when the user switches a document to admin mode later). */
+async function extractFacts(id: string) {
+  const model = await getModel('analyze');
+  const res = await model.generateContent([
+    pdfPart(await readPdfBase64(id)),
+    textPart(`Read this PDF and reply with JSON only, in this shape:
+{${FACTS_SHAPE}}
+
+${FACTS_RULES(dayKey())}`),
+  ]);
+  const json = parseJson<Record<string, unknown>>(res.response.text());
+  return { keyDates: toKeyDates(json.keyDates), amounts: toAmounts(json.amounts), risks: toRisks(json.risks) };
+}
+
+async function makeCards(id: string) {
+  const model = await getModel('analyze');
+  const res = await model.generateContent([
+    pdfPart(await readPdfBase64(id)),
+    textPart(`Make study flashcards from this PDF. Reply with JSON only:
+{"cards": [{"q": string (a specific question, under 20 words), "a": string (the answer, 1-2 sentences), "page": number}]}
+
+Rules: 12 to 20 cards covering the most important concepts, definitions, numbers and cause/effect. One fact per card. No trivia about the document itself (author, title). Answers come only from the document.`),
+  ]);
+  return toCards(parseJson<{ cards?: unknown }>(res.response.text()).cards);
+}
+
+async function makeQuizFor(id: string) {
+  const model = await getModel('analyze');
+  const res = await model.generateContent([
+    pdfPart(await readPdfBase64(id)),
+    textPart(`Write a 6-question multiple-choice quiz that tests understanding of this PDF. Reply with JSON only:
+{"questions": [{"q": string, "options": string[] (exactly 4, one correct), "answer": number (index of the correct option, 0-3), "why": string (one sentence explaining the answer), "page": number}]}
+
+Rules: mix recall and reasoning questions; plausible wrong options; vary the position of the correct answer; answers come only from the document. Random seed: ${Math.random().toString(36).slice(2, 8)}.`),
+  ]);
+  return toQuiz(parseJson<{ questions?: unknown }>(res.response.text()).questions);
 }
 
 function friendlyAiError(err: unknown) {
@@ -174,6 +258,13 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
                 lastAnswer: x.lastAnswer,
                 questionCount: x.questionCount ?? 0,
                 folderId: x.folderId ?? null,
+                mode: toMode(x.mode),
+                source: x.source === 'scan' || x.source === 'share' ? x.source : 'upload',
+                // Stored values came from Gemini via the sanitizers; re-check cheaply in case of old/bad data.
+                keyDates: toKeyDates(x.keyDates),
+                amounts: toAmounts(x.amounts),
+                risks: toRisks(x.risks),
+                cards: Array.isArray(x.cards) ? (x.cards as Flashcard[]) : undefined,
               } satisfies Doc;
             }),
           );
@@ -226,6 +317,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
 
   const getDoc = useCallback((id?: string) => docs.find((d) => d.id === id), [docs]);
   const hasLocalFile = useCallback((id: string) => localFile(id).exists, []);
+  const pdfUri = useCallback((id: string) => localFile(id).uri, []);
 
   const notify = useCallback(
     async (title: string, body: string, docId?: string) => {
@@ -254,8 +346,21 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
           ...(meta.pages ? { pages: meta.pages } : {}),
           summary: meta.summary,
           highlights: meta.highlights,
+          mode: meta.mode,
+          keyDates: meta.keyDates,
+          amounts: meta.amounts,
+          risks: meta.risks,
         });
-        await notify(`${meta.title || fallbackTitle} is ready`, 'Pagewise has read your document. Start asking questions.', id);
+        const next = meta.keyDates.map((k) => ({ ...k, days: daysUntil(k.date) })).filter((k) => k.days >= 0).sort((a, b) => a.days - b.days)[0];
+        await notify(
+          `${meta.title || fallbackTitle} is ready`,
+          next
+            ? `Next date: ${next.label} (${next.date}).${meta.risks.length ? ` ${meta.risks.length} clause${meta.risks.length === 1 ? '' : 's'} worth a look.` : ''}`
+            : meta.mode === 'study'
+              ? 'Pagewise has read your document. Make flashcards or take a quiz.'
+              : 'Pagewise has read your document. Start asking questions.',
+          id,
+        );
       } catch (err) {
         await updateDoc(ref, { status: 'error', error: friendlyAiError(err) });
       }
@@ -264,7 +369,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addDoc = useCallback<LibraryCtx['addDoc']>(
-    async (picked) => {
+    async (picked, source = 'upload') => {
       if (!uid || !user) throw new Error('Please log in again.');
       const limitForPlan = PLAN_LIMITS[user.plan];
       if (docs.length >= limitForPlan)
@@ -287,6 +392,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
         sizeBytes: size,
         status: 'processing',
         questionCount: 0,
+        source,
         createdAt: serverTimestamp(),
       });
       // Analysis continues in the background; the upload screen watches the status.
@@ -490,8 +596,7 @@ Rules:
 Reply with JSON only:
 {"folders": [{"name": string, "existingFolderId": string | null, "docIds": string[]}]}`;
       const res = await model.generateContent(prompt);
-      const raw = res.response.text().replace(/^```(?:json)?|```$/g, '').trim();
-      const parsed = JSON.parse(raw) as OrganizePlan;
+      const parsed = parseJson<OrganizePlan>(res.response.text());
 
       // Validate: known ids only, each document once, drop empty folders.
       const valid = new Set(ready.map((d) => d.id));
@@ -533,6 +638,62 @@ Reply with JSON only:
     [uid, folders],
   );
 
+  /* ---------- modes: admin & study ---------- */
+
+  const setMode = useCallback(
+    async (docId: string, mode: DocMode) => {
+      if (!uid) return;
+      const ref = doc(db(), 'users', uid, 'documents', docId);
+      await updateDoc(ref, { mode });
+      const d = docs.find((x) => x.id === docId);
+      if (mode === 'admin' && d && !d.keyDates?.length && !d.amounts?.length && !d.risks?.length) {
+        try {
+          await updateDoc(ref, await extractFacts(docId));
+        } catch (err) {
+          throw new Error(friendlyAiError(err));
+        }
+      }
+    },
+    [uid, docs],
+  );
+
+  const generateCards = useCallback(
+    async (docId: string) => {
+      if (!uid) return;
+      let cards: Flashcard[];
+      try {
+        cards = await makeCards(docId);
+      } catch (err) {
+        throw new Error(friendlyAiError(err));
+      }
+      if (!cards.length) throw new Error('Pagewise couldn’t find enough material for flashcards in this document.');
+      await updateDoc(doc(db(), 'users', uid, 'documents', docId), { cards });
+    },
+    [uid],
+  );
+
+  const reviewCard = useCallback(
+    async (docId: string, cardId: string, grade: Grade) => {
+      if (!uid) return;
+      const d = docs.find((x) => x.id === docId);
+      if (!d?.cards) return;
+      const cards = d.cards.map((c) => (c.id === cardId ? rescheduleCard(c, grade) : c));
+      setDocs((all) => all.map((x) => (x.id === docId ? { ...x, cards } : x))); // instant UI, Firestore catches up
+      await updateDoc(doc(db(), 'users', uid, 'documents', docId), { cards });
+    },
+    [uid, docs],
+  );
+
+  const makeQuiz = useCallback(async (docId: string) => {
+    try {
+      const qs = await makeQuizFor(docId);
+      if (!qs.length) throw new Error('Pagewise couldn’t write a quiz for this document.');
+      return qs;
+    } catch (err) {
+      throw new Error(friendlyAiError(err));
+    }
+  }, []);
+
   const value = useMemo(
     () => ({
       docs,
@@ -556,8 +717,13 @@ Reply with JSON only:
       moveDoc,
       suggestOrganization,
       applyOrganization,
+      pdfUri,
+      setMode,
+      generateCards,
+      reviewCard,
+      makeQuiz,
     }),
-    [docs, loading, notices, stats, streaming, typing, getDoc, hasLocalFile, addDoc, retryAnalysis, removeDoc, send, clearChat, markAllRead, folders, createFolder, updateFolder, deleteFolder, moveDoc, suggestOrganization, applyOrganization],
+    [docs, loading, notices, stats, streaming, typing, getDoc, hasLocalFile, addDoc, retryAnalysis, removeDoc, send, clearChat, markAllRead, folders, createFolder, updateFolder, deleteFolder, moveDoc, suggestOrganization, applyOrganization, pdfUri, setMode, generateCards, reviewCard, makeQuiz],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -28,6 +28,7 @@ export default function Welcome() {
         <View style={styles.copy}>
           <Text style={styles.title}>Deep insights, simple{'\n'}conversations</Text>
           <Text style={styles.subtitle}>Analyze Any Document Instantly</Text>
+          <Text style={styles.promise}>Contracts, bills, notes. Your PDFs stay on your phone.</Text>
         </View>
 
         <View style={styles.actions}>
@@ -58,5 +59,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     letterSpacing: -0.1,
   },
+  promise: { fontFamily: fonts.regular, fontSize: 13.5, color: colors.faint, marginTop: 8, textAlign: 'center' },
   actions: { paddingHorizontal: 40, gap: 14, marginBottom: 18 },
 });
